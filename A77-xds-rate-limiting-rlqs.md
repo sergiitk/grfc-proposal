@@ -220,20 +220,33 @@ performance reasons, CEL variables should be resolved on
 demand ([`CelVariableResolver`](https://javadoc.io/doc/dev.cel/runtime/0.6.0/dev/cel/runtime/CelVariableResolver.html)
 in Java).
 
-| Attribute           | Type                  | gRPC source                                                                                                                              | Description                                                 |
-|---------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
-| `request.path`      | `string`              | **CPP:** `metadata[":path"]`<br />**Go:** `grpc.Method(ctx)`<br />**Java:** `"/" + serverCall.getMethodDescriptor().getFullMethodName()` | The path portion of the URL.                                |
-| `request.url_path`  | `string`              | `Same as request.path`                                                                                                                   | The path portion of the URL without the query string.       |
-| `request.host`      | `string`              | **CPP**, **Go**: `metadata[":authority"]`<br />**Java**: `serverCall.getAuthority()`                                                     | The host portion of the URL.                                |
-| `request.scheme`    | `string`              | `Not set`                                                                                                                                | The scheme portion of the URL.                              |
-| `request.method`    | `string`              | Hard-coded to `"POST"` if unavailable and a code audit confirms the server denies requests for all other method types.                   | Request method.                                             |
-| `request.headers`   | `map<string, string>` | As defined in [gRFC A41][A41], "header" field.                                                                                           | All request headers indexed by the lower-cased header name. |
-| `request.referer`   | `string`              | `metadata["referer"]`                                                                                                                    | Referer request header.                                     |
-| `request.useragent` | `string`              | `metadata["user-agent"]`                                                                                                                 | User agent request header.                                  |
-| `request.time`      | `timestamp`           | Not set                                                                                                                                  | Time of the first byte received.                            |
-| `request.id`        | `string`              | `metadata["x-request-id"]`                                                                                                               | Request ID.                                                 |
-| `request.protocol`  | `string`              | Not set                                                                                                                                  | Request protocol.                                           |
-| `request.query`     | `string`              | Hard-coded to `""`.                                                                                                                      | The query portion of the URL.                               |
+| Attribute           | Type                  | gRPC source                | Description                                                 |
+|---------------------|-----------------------|----------------------------|-------------------------------------------------------------|
+| `request.path`      | `string`              | Full method name           | The path portion of the URL.                                |
+| `request.url_path`  | `string`              | Same as `request.path`     | The path portion of the URL without the query string.       |
+| `request.host`      | `string`              | Authority                  | The host portion of the URL.                                |
+| `request.scheme`    | `string`              | Not set                    | The scheme portion of the URL.                              |
+| `request.method`    | `string`              | `POST`                     | Request method.                                             |
+| `request.headers`   | `map<string, string>` | `metadata`                 | All request headers indexed by the lower-cased header name. |
+| `request.referer`   | `string`              | `metadata["referer"]`      | Referer request header.                                     |
+| `request.useragent` | `string`              | `metadata["user-agent"]`   | User agent request header.                                  |
+| `request.time`      | `timestamp`           | Not set                    | Time of the first byte received.                            |
+| `request.id`        | `string`              | `metadata["x-request-id"]` | Request ID.                                                 |
+| `request.protocol`  | `string`              | Not set                    | Request protocol.                                           |
+| `request.query`     | `string`              | `""`                       | The query portion of the URL.                               |
+
+Footnotes:
+**CPP:** `metadata[":path"]`
+**Go:** `grpc.Method(ctx)`
+**Java:** `"/" + serverCall.getMethodDescriptor().getFullMethodName()`
+
+Hard-coded to `"POST"` if unavailable and a code audit confirms the server denies requests for all other method types.
+
+**CPP**, **Go**: `metadata[":authority"]`
+**Java**: `serverCall.getAuthority()`
+
+
+As defined in [gRFC A41][A41], "header" field.
 
 ### Persistent Filter Cache
 
