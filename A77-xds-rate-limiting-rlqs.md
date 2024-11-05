@@ -1,5 +1,5 @@
-# A77: xDS Server-Side Rate Limiting
-
+A77: xDS Server-Side Rate Limiting
+----
 * Author(s): Sergii Tkachenko (@sergiitk)  
 * Approver: Mark Roth (@markdroth)  
 * Status: In Review  
@@ -7,11 +7,11 @@
 * Last updated: 2024-11-04  
 * Discussion at: `TODO(sergiitk): <google group thread>`
 
-# Abstract
+## Abstract
 
 We're adding support for global rate limiting to xDS-enabled gRPC servers. Users will be able to configure per-time-unit quotas based on request metadata. Rate Limit Quota Service will fairly distribute request quotas across participating servers. 
 
-# Background
+## Background
 
 [Global rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting) allows mesh users to manage fair consumption of their services and prevent misbehaving clients from overloading the services. We will implement [quota-based rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting#quota-based-rate-limiting), where rate-limiting decisions are asynchronously offloaded to [Rate Limiting Quota Service (RLQS)](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto). Requests are grouped into buckets based on their metadata, and gRPC servers periodically report bucket usages. RLQS aggregates the data from different gRPC servers, and fairly distributes the quota among them. This approach is best suited for high-request-per-second applications, where a certain margin of error is acceptable as long as expected average QPS is achieved.
 
@@ -23,7 +23,7 @@ To support RLQS, we'll need to implement several other xDS-related features, whi
 4. One of the matching mechanisms will be [CEL](https://cel.dev/) (Common Expression Language).  
 5. Bucket cache will be retained across LDS/RDS updates using the approach proposed in [A83: xDS GCP Authentication Filter](https://github.com/grpc/proposal/blob/master/A83-xds-gcp-authn-filter.md#filter-call-credentials-cache).
 
-## Related Proposals:
+### Related Proposals:
 
 * [A27: xDS-Based Global Load Balancing](https://github.com/grpc/proposal/blob/master/A27-xds-global-load-balancing.md)  
 * [A36: xDS-Enabled Servers](https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md)  
@@ -31,9 +31,9 @@ To support RLQS, we'll need to implement several other xDS-related features, whi
 * [A41: xDS RBAC Support](https://github.com/grpc/proposal/blob/master/A41-xds-rbac.md)  
 * [A83: xDS GCP Authentication Filter](https://github.com/grpc/proposal/blob/master/A83-xds-gcp-authn-filter.md)
 
-# Proposal
+## Proposal
 
-## RLQS Components Overview
+### RLQS Components Overview
 
 The diagram below shows the conceptual components of the RLQS Filter. Note that the actual implementation may vary depending on the language.
 
@@ -41,27 +41,27 @@ The diagram below shows the conceptual components of the RLQS Filter. Note that 
 <insert graph1>
 ```
 
-#### RLQS HTTP Filter
+##### RLQS HTTP Filter
 
 The filter parses the config, combines LDS filter config with RDS overrides, and generates the `onClientCall` handlers (aka interceptors in Java and Go, and filters in C++).
 
-#### RLQS Cache
+##### RLQS Cache
 
 RLQS Cache persists across LDS/RDS updates. It maps unique filter configs to RLQS Filter State instances, and provides the thread safety for creating and accessing them. Each unique filter config generates a unique RLQS Filter state, a 1:1 mapping.
 
-#### RLQS Filter State
+##### RLQS Filter State
 
 RLQS Filter State contains the business logic for rate limiting, and the current state of rate limit assignments per bucket. RLQS Filter State is what's passed to the `onCallHandler`. It exposes the public "`rateLimit()`" method, which takes request metadata as an argument. 
 
-#### Matching
+##### Matching
 
 RLQS Filter State evaluates the metadata against the matcher tree to match the request into a bucket. The Bucket holds the Rate Limit Quota assigned by the RLQS server (f.e. 100 requests per minute), and aggregates the number of requests it allowed/denied. This information is used to make the rate limiting decision.
 
-#### Reporting
+##### Reporting
 
 The aggregated number of requests is reported to the RLQS server at configured intervals. The report action is triggered by the Report Timers. RLQS Client manages a gRPC stream to the RLQS server. It's used by the filter state to send periodic bucket usage reports, and to receive new rate limit quota assignments to the buckets.
 
-## Connecting to xDS-configured Control Plane
+### Connecting to xDS-configured Control Plane
 
 xDS Control Plane provides RLQS connection details in [`GrpcService`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc) message (already supported by Envoy), which contains the target URI, [`channel_credentials`](https://docs.google.com/document/d/1vjcjFrkmogWu4Ysbtsbdylq9nczL9dVzEK6i7E7EVqQ/edit?tab=t.0#heading=h.kubdil51yx1d), and [`call_credentials`](https://docs.google.com/document/d/1vjcjFrkmogWu4Ysbtsbdylq9nczL9dVzEK6i7E7EVqQ/edit?tab=t.0#heading=h.v43uzrby4utt).  If the xDS Control Plane is compromised, the attacker could configure the xDS clients to talk to other malicious Control Plane, leading to such potential exploits as:
 
@@ -94,7 +94,7 @@ When a Control Plane is configured via `GrpcService.GoogleGrpc` message, we'll i
 
 This solution is not specific to RLQS, and can (and should) be used with any other Control Planes configured via [GrpcService](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc) message.
 
-## Unified Matcher API
+### Unified Matcher API
 
 RPCs will be matched into buckets using [Unified Matcher API](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html) — an adaptable framework that can be used in any xDS component that needs matching features. 
 
@@ -110,13 +110,13 @@ In this iteration the following Unified Mather extensions will be supported:
 2. Custom Matchers:  
    1. [`CelMatcher`](https://github.com/cncf/xds/blob/main/xds/type/matcher/v3/cel.proto)
 
-## CEL Integration
+### CEL Integration
 
 We will support request metadata matching via CEL expressions. Only Canonical CEL and only checked expressions will be supported (`cel.expr.CheckedExpr`).
 
 We will match [Envoy's CEL evaluation environment](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes) (available variables and ​​extension functions).
 
-### Supported CEL Functions
+#### Supported CEL Functions
 
 Similar to Envoy, we will support [standard CEL functions](https://github.com/google/cel-spec/blob/c629b2be086ed6b4c44ef4975e56945f66560677/doc/langdef.md#standard-definitions) except comprehension-style macros.
 
@@ -134,7 +134,7 @@ Similar to Envoy, we will support [standard CEL functions](https://github.com/go
 | `==`, `!=`, `>`, `<`, `<=`, `>=` | Comparisons. |
 | `&#124;&#124;`, `&&`, `+`, `-`, `/`, `*`, `%`, `!` | Basic functions. |
 
-### Supported CEL Variables
+#### Supported CEL Variables
 
 For RLQS, only the `request` variable is supported in CEL expressions. For performance reasons, CEL variables should be resolved on demand ([`CelVariableResolver`](https://javadoc.io/doc/dev.cel/runtime/0.6.0/dev/cel/runtime/CelVariableResolver.html) in Java).
 
@@ -153,7 +153,7 @@ For RLQS, only the `request` variable is supported in CEL expressions. For perfo
 | `request.protocol` | `string` | Not set | Request protocol. |
 | `request.query` | `string` | Hard-coded to `""`. | The query portion of the URL. |
 
-## Persistent Filter Cache
+### Persistent Filter Cache
 
 RLQS Filter State holds the bucket usage data, report timers and the bidirectional stream to the RLQS server. To prevent the loss of state across LDS/RDS updates, RLQS filter will require a cache retention mechanism similar to the one implemented for [A83: xDS GCP Authentication Filter](https://github.com/grpc/proposal/blob/master/A83-xds-gcp-authn-filter.md#filter-call-credentials-cache). 
 
@@ -181,11 +181,11 @@ RDS 1 updates RLQS config for the route r1 so it's identical to config c2. We re
 
 LDS 2 update removes r1 and r2, and adds new route r4 with the config identical to c2. While onCallHandlers for routes r1 and r2 are destroyed, RlqsFilterState(c2) is still used by two onCallHandlers, so it's preserved in RLQS Cache.
 
-#### Future considerations
+##### Future considerations
 
 With this proposal, the filter state is lost if change is made to the filter config, including updates to inconsequential fields such as deny response status. Additional logic can be introduced to handle updates to such fields while preserving the filter state.
 
-## Multithreading
+### Multithreading
 
 There are several mutex-synchronized operations executed in latency-sensitive `onCallHandler`:
 
@@ -194,23 +194,23 @@ There are several mutex-synchronized operations executed in latency-sensitive `o
 
 Each gRPC implementation needs to consider what synchronization primitives are available in their language to minimize the thread lock time.
 
-## Temporary environment variable protection
+### Temporary environment variable protection
 
 During initial development, this feature will be enabled via the `GRPC_EXPERIMENTAL_XDS_ENABLE_RLQS` environment variable. This environment variable protection will be removed once the feature has proven stable.
 
-# Rationale
+## Rationale
 
-#### Alternative protocol
+##### Alternative protocol
 
 [Rate Limiting Service (RLS)](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting#per-connection-or-per-http-request-rate-limiting) is another Global Rate Limiting solution supported by Envoy. While it's best suited for precise cases, where even a single request over the limit must be throttled, this approach performs synchronous (blocking) per-HTTP-request rate limit check.
 
-#### xDS-configured Control Plane Trust
+##### xDS-configured Control Plane Trust
 
 The problem with a compromised xDS Control Plane configuring a connection to a malicious RLQS server may be solved holistically by signing xDS messages cryptographically. This feature would solve multiple problems in the same class, but it's out-of-scope of RLQS. 
 
 The proposed solution with the change to the bootstrap file was designed to be compatible with such future protocol extension.
 
-# Implementation
+## Implementation
 
 * The initial implementation will be in Java.   
 * C-core, Python, Go are TBD.
