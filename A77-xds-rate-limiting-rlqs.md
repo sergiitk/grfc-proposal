@@ -71,8 +71,42 @@ which are covered in the proposal:
 The diagram below shows the conceptual components of the RLQS Filter. Note that
 the actual implementation may vary depending on the language.
 
-```
-<insert graph1>
+```mermaid
+graph TD
+%% RLQS Components Flowchart v7
+
+%% == nodes ==
+rlqs_filter(RLQS HTTP Filter)
+rlqs_cache(RLQS Cache)
+rlqs_filter_state(RLQS Filter State)
+
+rlqs_client(RLQS Client)
+  rlqs_server[(RLQS Server)]
+rlqs_bucket_cache(RLQS Bucket Cache)
+report_timers(Report Timers)
+matcher_tree(Matcher Tree)
+rlqs_bucket(RLQS Bucket)
+
+rpc_handler("Filter's onClientCall handler")
+request{{RPC}}
+
+%% == edges ==
+
+rlqs_filter -- "Get RLQS Filter State<br />per unique config" --> rlqs_cache -- "getOrCreate(config)" --> rlqs_filter_state
+rlqs_filter -- "Pass RLQS Filter State<br />for the route" --> rpc_handler -- "rateLimit(call)" --> rlqs_filter_state
+request --> rpc_handler
+
+rlqs_filter_state --o matcher_tree & report_timers
+rlqs_filter_state -- sendUsageReports --> rlqs_client
+rlqs_filter_state -- CRUD --> rlqs_bucket_cache
+rlqs_client -- onBucketsUpdate --> rlqs_filter_state
+
+rlqs_client <-. gRPC Stream .-> rlqs_server
+
+rlqs_bucket_cache -- "getOrCreate(bucketId)<br />Atomic Updates" --> rlqs_bucket
+
+style request stroke:RoyalBlue,stroke-width:2px;
+linkStyle 3,4 stroke:RoyalBlue,stroke-width:2px;
 ```
 
 ##### RLQS HTTP Filter
@@ -265,8 +299,57 @@ RLQS Filter State, each one mapped to a unique filter config generated from LDS
 config, and RDS overrides. Consider the following example that demonstrates the
 lifecycle of RLQS Filter Cache.
 
-```
-<insert graph2>
+```mermaid
+---
+config:
+  sequence:
+    showSequenceNumbers: true
+    height: 46
+    activationWidth: 15
+    diagramMarginX: 5
+    diagramMarginY: 5
+---
+sequenceDiagram
+
+%% gRFC: RLQS Filter Cache Lifecycle v1.1
+
+participant td as Control Plane
+participant filter as RLQS HTTP Filter
+participant cache as RLQS Cache
+participant e1 as RlqsFilterState(c1)
+participant e2 as RlqsFilterState(c2)
+
+# Notes
+Note right of td: r1-4: routes <br />c1-2: unique filter configs
+
+%% LDS 1
+td->>filter: LDS1<br />RLQS{r1=c1, r2=c2, r3=c2}
+
+filter->>cache: r1: getOrCreate(c1)
+cache->>+e1: new RlqsFilterState(c1)
+
+filter->>cache: r2: getOrCreate(c2)
+cache->>+e2: new RlqsFilterState(c2)
+
+filter->>cache: r3: getOrCreate(c2)
+Note over filter: r1: RlqsFilterState(c1)<br/>r2: RlqsFilterState(c2)<br/>r3: RlqsFilterState(c2)
+
+%% RDS 1
+td->>filter: RDS1<br />RLQS{r1=c2}
+filter->>cache: r1: getOrCreate(c2)
+filter->>cache: shutdownFilterState(c1)
+cache-xe1: RlqsFilterState(c1).shutdown()
+deactivate e1
+Note over filter: r1: RlqsFilterState(c2)<br/>r2: RlqsFilterState(c2)<br/>r3: RlqsFilterState(c2)
+
+
+%% LDS 2
+td->>filter: LDS2<br />RLQS{r3=c2, r4=c2}
+filter->>cache: r4: getOrCreate(c2)
+Note over filter: r3: RlqsFilterState(c2)<br/>r4: RlqsFilterState(c2)
+
+%% End
+deactivate e2
 ```
 
 **LDS 1**
