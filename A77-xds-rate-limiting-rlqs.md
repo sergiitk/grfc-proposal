@@ -305,10 +305,12 @@ config:
   sequence:
     showSequenceNumbers: true
     height: 46
+    diagramMarginX: 40
+    diagramMarginY: 40
 ---
 sequenceDiagram
 
-%% gRFC: RLQS Filter Cache Lifecycle v1.2
+%% gRFC: RLQS Filter Cache Lifecycle v1.1
 
 participant td as Control Plane
 participant filter as RLQS HTTP Filter
