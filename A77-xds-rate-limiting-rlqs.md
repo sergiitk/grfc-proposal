@@ -13,23 +13,34 @@ We're adding support for global rate limiting to xDS-enabled gRPC servers. Users
 
 ## Background
 
-[Global rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting) allows mesh users to manage fair consumption of their services and prevent misbehaving clients from overloading the services. We will implement [quota-based rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting#quota-based-rate-limiting), where rate-limiting decisions are asynchronously offloaded to [Rate Limiting Quota Service (RLQS)](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto). Requests are grouped into buckets based on their metadata, and gRPC servers periodically report bucket usages. RLQS aggregates the data from different gRPC servers, and fairly distributes the quota among them. This approach is best suited for high-request-per-second applications, where a certain margin of error is acceptable as long as expected average QPS is achieved.
+[Global rate limiting][https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting] allows mesh users to manage fair consumption of their services and prevent misbehaving clients from overloading the services. We will implement [quota-based rate limiting][https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting#quota-based-rate-limiting], where rate-limiting decisions are asynchronously offloaded to [Rate Limiting Quota Service (RLQS)][rlqs_proto]. Requests are grouped into buckets based on their metadata, and gRPC servers periodically report bucket usages. RLQS aggregates the data from different gRPC servers, and fairly distributes the quota among them. This approach is best suited for high-request-per-second applications, where a certain margin of error is acceptable as long as expected average QPS is achieved.
 
 To support RLQS, we'll need to implement several other xDS-related features, which are covered in the proposal:
 
-1. xDS Control Plane will provide RLQS connection details in [the filter config](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto) via [`GrpcService`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc) message.  
+1. xDS Control Plane will provide RLQS connection details in [the filter config][rlqs_proto] via [`GrpcService`][envoy_grpc_service] message.  
 2. Quota assignments will be configured via [`TokenBucket`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/v3/token_bucket.proto) message.  
-3. RPCs will be matched into buckets using [Unified Matcher API](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html).  
+3. RPCs will be matched into buckets using [Unified Matcher API][envoy_matching_api_doc].  
 4. One of the matching mechanisms will be [CEL](https://cel.dev/) (Common Expression Language).  
-5. Bucket cache will be retained across LDS/RDS updates using the approach proposed in [A83: xDS GCP Authentication Filter](https://github.com/grpc/proposal/blob/master/A83-xds-gcp-authn-filter.md#filter-call-credentials-cache).
+5. Bucket cache will be retained across LDS/RDS updates using the approach proposed in [A83: xDS GCP Authentication Filter][A83_filter_cache].
 
 ### Related Proposals:
 
-* [A27: xDS-Based Global Load Balancing](https://github.com/grpc/proposal/blob/master/A27-xds-global-load-balancing.md)  
-* [A36: xDS-Enabled Servers](https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md)  
-* [A39: xDS HTTP Filter Support](https://github.com/grpc/proposal/blob/master/A39-xds-http-filters.md)  
-* [A41: xDS RBAC Support](https://github.com/grpc/proposal/blob/master/A41-xds-rbac.md)  
-* [A83: xDS GCP Authentication Filter](https://github.com/grpc/proposal/blob/master/A83-xds-gcp-authn-filter.md)
+* [A27: xDS-Based Global Load Balancing][A27]  
+* [A36: xDS-Enabled Servers][A36]  
+* [A39: xDS HTTP Filter Support][A39]  
+* [A41: xDS RBAC Support][A41]  
+* [A83: xDS GCP Authentication Filter][A83]
+
+[A27]: https://github.com/grpc/proposal/blob/master/A27-xds-global-load-balancing.md
+[A41]: https://github.com/grpc/proposal/blob/master/A41-xds-rbac.md
+[A39]: https://github.com/grpc/proposal/blob/master/A39-xds-http-filters.md
+[A36]: https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md
+[A83]: https://github.com/grpc/proposal/blob/master/A83-xds-gcp-authn-filter.md
+[A83_filter_cache]: https://github.com/grpc/proposal/blob/master/A83-xds-gcp-authn-filter.md#filter-call-credentials-cache
+[rlqs_proto]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto
+[rlqs_proto_bucket_matchers]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#envoy-v3-api-field-extensions-filters-http-rate-limit-quota-v3-ratelimitquotafilterconfig-bucket-matchers
+[envoy_matching_api_doc]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
+[envoy_grpc_service]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc
 
 ## Proposal
 
@@ -63,7 +74,7 @@ The aggregated number of requests is reported to the RLQS server at configured i
 
 ### Connecting to xDS-configured Control Plane
 
-xDS Control Plane provides RLQS connection details in [`GrpcService`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc) message (already supported by Envoy), which contains the target URI, [`channel_credentials`](https://docs.google.com/document/d/1vjcjFrkmogWu4Ysbtsbdylq9nczL9dVzEK6i7E7EVqQ/edit?tab=t.0#heading=h.kubdil51yx1d), and [`call_credentials`](https://docs.google.com/document/d/1vjcjFrkmogWu4Ysbtsbdylq9nczL9dVzEK6i7E7EVqQ/edit?tab=t.0#heading=h.v43uzrby4utt).  If the xDS Control Plane is compromised, the attacker could configure the xDS clients to talk to other malicious Control Plane, leading to such potential exploits as:
+xDS Control Plane provides RLQS connection details in [`GrpcService`][envoy_grpc_service] message (already supported by Envoy), which contains the target URI, `channel_credentials`, and `call_credentials`.  If the xDS Control Plane is compromised, the attacker could configure the xDS clients to talk to other malicious Control Plane, leading to such potential exploits as:
 
 1. Leaking customer's Application Default Credentials OAuth token.  
 2. Causing MalOut/DDoS by sending bad data from the compromised RLQS (f.e. set rate limit policy to `ALLOW_ALL`/`DENY_ALL`).
@@ -92,15 +103,15 @@ When a Control Plane is configured via `GrpcService.GoogleGrpc` message, we'll i
 1. If target URI is not present, we don't create the connection to the requested Control Plane, and NACK the xDS resource.  
 2. If target URI is present, we create the connection to the requested Control Plane using the channel credentials provided in the bootstrap file. Transport security configuration provided by the TD is ignored.
 
-This solution is not specific to RLQS, and can (and should) be used with any other Control Planes configured via [GrpcService](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc) message.
+This solution is not specific to RLQS, and can (and should) be used with any other Control Planes configured via [GrpcService][envoy_grpc_service] message.
 
 ### Unified Matcher API
 
-RPCs will be matched into buckets using [Unified Matcher API](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html) — an adaptable framework that can be used in any xDS component that needs matching features. 
+RPCs will be matched into buckets using [Unified Matcher API][envoy_matching_api_doc] — an adaptable framework that can be used in any xDS component that needs matching features. 
 
 Envoy provides two syntactically equivalent Unified Matcher definitions: [`envoy.config.common.matcher.v3.Matcher`](https://github.com/envoyproxy/envoy/blob/e3da7ebb16ad01c2ac7662758a75dba5cdc024ce/api/envoy/config/common/matcher/v3/matcher.proto) and [`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto).  We will only support the latter, which is the preferred version for all new APIs using Unified Matcher.
 
-For RLQS, Unified Matcher tree will be provided in the filter config, [`bucket_matchers`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#envoy-v3-api-field-extensions-filters-http-rate-limit-quota-v3-ratelimitquotafilterconfig-bucket-matchers) field. Evaluating the tree against RPC metadata will yield `RateLimitQuotaBucketSettings`, which contains the information needed to associate the RPC with `bucket_id` and the default rate limiting configuration.
+For RLQS, Unified Matcher tree will be provided in the filter config, [`bucket_matchers`][bucket_matchers] field. Evaluating the tree against RPC metadata will yield `RateLimitQuotaBucketSettings`, which contains the information needed to associate the RPC with `bucket_id` and the default rate limiting configuration.
 
 In this iteration the following Unified Mather extensions will be supported:
 
@@ -145,7 +156,7 @@ For RLQS, only the `request` variable is supported in CEL expressions. For perfo
 | `request.host` | `string` | **CPP**, **Go**: `metadata[":authority"]` **Java**: `serverCall.getAuthority()` | The host portion of the URL. |
 | `request.scheme` | `string` | `Not set` | The scheme portion of the URL. |
 | `request.method` | `string` | Hard-coded to `"POST"` if unavailable and a code audit confirms the server denies requests for all other method types. | Request method.  |
-| `request.headers` | `map<string, string>` | As defined in [gRFC A41](https://github.com/grpc/proposal/blob/master/A41-xds-rbac.md), "header" field. | All request headers indexed by the lower-cased header name. |
+| `request.headers` | `map<string, string>` | As defined in [gRFC A41][A41], "header" field. | All request headers indexed by the lower-cased header name. |
 | `request.referer` | `string` | `metadata["referer"]` | Referer request header. |
 | `request.useragent` | `string` | `metadata["user-agent"]` | User agent request header. |
 | `request.time` | `timestamp` | Not set | Time of the first byte received. |
@@ -214,3 +225,4 @@ The proposed solution with the change to the bootstrap file was designed to be c
 
 * The initial implementation will be in Java.   
 * C-core, Python, Go are TBD.
+
