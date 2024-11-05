@@ -269,6 +269,10 @@ in Java).
 | `request.protocol`  | `string`              | Not set                    | Request protocol.                                           |
 | `request.query`     | `string`              | `""`                       | The query portion of the URL.                               |
 
+Here is a simple footnote[^1]. With some additional text after it.
+
+[^1]: My reference.
+
 Footnotes:
 **CPP:** `metadata[":path"]`
 **Go:** `grpc.Method(ctx)`
