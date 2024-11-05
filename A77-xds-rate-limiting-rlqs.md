@@ -62,6 +62,7 @@ which are covered in the proposal:
 [rlqs_proto_bucket_matchers]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#envoy-v3-api-field-extensions-filters-http-rate-limit-quota-v3-ratelimitquotafilterconfig-bucket-matchers
 [envoy_matching_api_doc]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [envoy_grpc_service]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc
+[envoy_cel_request]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes#request-attributes
 [RE2_wiki]: https://en.wikipedia.org/wiki/RE2_(software)
 
 ## Proposal
@@ -216,16 +217,16 @@ In this iteration the following Unified Mather extensions will be supported:
     1. [`HttpRequestHeaderMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/matcher/v3/http_inputs.proto#type-matcher-v3-httprequestheadermatchinput)
     2. [`HttpAttributesCelMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/http_inputs.proto#envoy-v3-api-msg-xds-type-matcher-v3-httpattributescelmatchinput)
 2. Custom Matchers:
-    1. [`CelMatcher`](https://github.com/cncf/xds/blob/main/xds/type/matcher/v3/cel.proto)
+    1. [`CelMatcher`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/cel.proto.html)
 
 ### CEL Integration
 
 We will support request metadata matching via CEL expressions. Only Canonical
 CEL and only checked expressions will be supported (`cel.expr.CheckedExpr`).
 
-We will
-match [Envoy's CEL evaluation environment](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes) (
-available variables and ​​extension functions).
+CEL evaluation environment is a set of available variables and extension
+functions in a CEL program. We will
+match [Envoy's CEL environment](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes).
 
 #### Supported CEL Functions
 
@@ -249,42 +250,49 @@ except comprehension-style macros.
 
 #### Supported CEL Variables
 
-For RLQS, only the `request` variable is supported in CEL expressions. For
-performance reasons, CEL variables should be resolved on
-demand ([`CelVariableResolver`](https://javadoc.io/doc/dev.cel/runtime/0.6.0/dev/cel/runtime/CelVariableResolver.html)
-in Java).
+For RLQS, only the `request` variable is supported in CEL expressions. We will
+adapt [Envoy's Request Attributes][envoy_cel_request] for gRPC.
 
-| Attribute           | Type                  | gRPC source                | Description                                                 |
-|---------------------|-----------------------|----------------------------|-------------------------------------------------------------|
-| `request.path`      | `string`              | Full method name           | The path portion of the URL.                                |
-| `request.url_path`  | `string`              | Same as `request.path`     | The path portion of the URL without the query string.       |
-| `request.host`      | `string`              | Authority                  | The host portion of the URL.                                |
-| `request.scheme`    | `string`              | Not set                    | The scheme portion of the URL.                              |
-| `request.method`    | `string`              | `POST`                     | Request method.                                             |
-| `request.headers`   | `map<string, string>` | `metadata`                 | All request headers indexed by the lower-cased header name. |
-| `request.referer`   | `string`              | `metadata["referer"]`      | Referer request header.                                     |
-| `request.useragent` | `string`              | `metadata["user-agent"]`   | User agent request header.                                  |
-| `request.time`      | `timestamp`           | Not set                    | Time of the first byte received.                            |
-| `request.id`        | `string`              | `metadata["x-request-id"]` | Request ID.                                                 |
-| `request.protocol`  | `string`              | Not set                    | Request protocol.                                           |
-| `request.query`     | `string`              | `""`                       | The query portion of the URL.                               |
+| Attribute           | Type                  | gRPC source                  | Envoy Description                                           |
+|---------------------|-----------------------|------------------------------|-------------------------------------------------------------|
+| `request.path`      | `string`              | Full method name<sup>1</sup> | The path portion of the URL.                                |
+| `request.url_path`  | `string`              | Same as `request.path`       | The path portion of the URL without the query string.       |
+| `request.host`      | `string`              | Authority<sup>2</sup>        | The host portion of the URL.                                |
+| `request.scheme`    | `string`              | Not set                      | The scheme portion of the URL.                              |
+| `request.method`    | `string`              | `POST`<sup>3</sup>           | Request method.                                             |
+| `request.headers`   | `map<string, string>` | `metadata`<sup>4</sup>       | All request headers indexed by the lower-cased header name. |
+| `request.referer`   | `string`              | `metadata["referer"]`        | Referer request header.                                     |
+| `request.useragent` | `string`              | `metadata["user-agent"]`     | User agent request header.                                  |
+| `request.time`      | `timestamp`           | Not set                      | Time of the first byte received.                            |
+| `request.id`        | `string`              | `metadata["x-request-id"]`   | Request ID corresponding to `x-request-id` header value     |
+| `request.protocol`  | `string`              | Not set                      | Request protocol.                                           |
+| `request.query`     | `string`              | `""`                         | The query portion of the URL.                               |
 
-Here is a simple footnote[^1]. With some additional text after it.
+##### Footnotes
+**<sup>1</sup> `request.path`**
+* CPP: `metadata[":path"]` 
+* Go: `grpc.Method(ctx)` 
+* Java: `"/" + serverCall.getMethodDescriptor().getFullMethodName()` 
 
-[^1]: My reference.
+**<sup>2</sup> `request.host`**
+* CPP, Go: `metadata[":authority"]` 
+* Java: `serverCall.getAuthority()` 
 
-Footnotes:
-**CPP:** `metadata[":path"]`
-**Go:** `grpc.Method(ctx)`
-**Java:** `"/" + serverCall.getMethodDescriptor().getFullMethodName()`
+**<sup>3</sup> `request.method`**\
+Hard-coded to `"POST"` if unavailable and a code audit confirms the server
+denies requests for all other method types.
 
-Hard-coded to `"POST"` if unavailable and a code audit confirms the server denies requests for all other method types.
-
-**CPP**, **Go**: `metadata[":authority"]`
-**Java**: `serverCall.getAuthority()`
-
-
+**<sup>4</sup> `request.headers`**\
 As defined in [gRFC A41][A41], "header" field.
+
+##### Implementation
+
+For performance reasons, CEL variables should be resolved on demand. CEL Runtime
+provides the different variable resolving approaches based on the language:
+
+* CPP: [`BaseActivation::FindValue()`](https://github.com/google/cel-cpp/blob/9310c4910e598362695930f0e11b7f278f714755/eval/public/base_activation.h#L35)
+* Go: [`Activation.ResolveName(string)`](https://github.com/google/cel-go/blob/3f12ecad39e2eb662bcd82b6391cfd0cb4cb1c5e/interpreter/activation.go#L30)
+* Java: [`CelVariableResolver`](https://javadoc.io/doc/dev.cel/runtime/0.6.0/dev/cel/runtime/CelVariableResolver.html)
 
 ### Persistent Filter Cache
 
