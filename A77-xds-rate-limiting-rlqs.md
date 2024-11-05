@@ -31,12 +31,12 @@ To support RLQS, we'll need to implement several other xDS-related features, whi
 * [A41: xDS RBAC Support][A41]  
 * [A83: xDS GCP Authentication Filter][A83]
 
-[A27]: https://github.com/grpc/proposal/blob/master/A27-xds-global-load-balancing.md
-[A41]: https://github.com/grpc/proposal/blob/master/A41-xds-rbac.md
-[A39]: https://github.com/grpc/proposal/blob/master/A39-xds-http-filters.md
-[A36]: https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md
-[A83]: https://github.com/grpc/proposal/blob/master/A83-xds-gcp-authn-filter.md
-[A83_filter_cache]: https://github.com/grpc/proposal/blob/master/A83-xds-gcp-authn-filter.md#filter-call-credentials-cache
+[A27]: A27-xds-global-load-balancing.md
+[A41]: A41-xds-rbac.md
+[A39]: A39-xds-http-filters.md
+[A36]: A36-xds-for-servers.md
+[A83]: A83-xds-gcp-authn-filter.md
+[A83_filter_cache]: A83-xds-gcp-authn-filter.md#filter-call-credentials-cache
 [rlqs_proto]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto
 [rlqs_proto_bucket_matchers]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#envoy-v3-api-field-extensions-filters-http-rate-limit-quota-v3-ratelimitquotafilterconfig-bucket-matchers
 [envoy_matching_api_doc]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
