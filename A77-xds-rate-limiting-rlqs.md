@@ -62,6 +62,7 @@ which are covered in the proposal:
 [rlqs_proto_bucket_matchers]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#envoy-v3-api-field-extensions-filters-http-rate-limit-quota-v3-ratelimitquotafilterconfig-bucket-matchers
 [envoy_matching_api_doc]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [envoy_grpc_service]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc
+[RE2_wiki]: https://en.wikipedia.org/wiki/RE2_(software)
 
 ## Proposal
 
@@ -198,19 +199,19 @@ Similar to Envoy, we will
 support [standard CEL functions](https://github.com/google/cel-spec/blob/c629b2be086ed6b4c44ef4975e56945f66560677/doc/langdef.md#standard-definitions)
 except comprehension-style macros.
 
-| CEL Method                                         | Description                                                                                                                         |
-|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| `size(x)`                                          | Returns the length of a container x (string, bytes, list, map).                                                                     |
-| `x.matches(y)`                                     | Returns true if the string x is partially matched by the specified [RE2](https://en.wikipedia.org/wiki/RE2_\(software\)) pattern y. |
-| `x.contains(y)`                                    | Returns true if the string x contains the substring y.                                                                              |
-| `x.startsWith(y)`                                  | Returns true if the string x begins with the substring y.                                                                           |
-| `x.endsWith(y)`                                    | Returns true if the string x ends with the substring y.                                                                             |
-| `timestamp(x)`, `timestamp.get*(x)`, `duration`    | Date/time functions.                                                                                                                |
-| `in`, `[]`                                         | Map/list indexing.                                                                                                                  |
-| `has(m.x)`                                         | (macro) Returns true if the map `m` has the string `"x"` as a key.                                                                  |
-| `int`, `uint`, `double`, `string`, `bytes`, `bool` | Conversions and identities.                                                                                                         |
-| `==`, `!=`, `>`, `<`, `<=`, `>=`                   | Comparisons.                                                                                                                        |
-| `&#124;&#124;`, `&&`, `+`, `-`, `/`, `*`, `%`, `!` | Basic functions.                                                                                                                    |
+| CEL Method                                         | Description                                                                                   |
+|----------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| `size(x)`                                          | Returns the length of a container x (string, bytes, list, map).                               |
+| `x.matches(y)`                                     | Returns true if the string x is partially matched by the specified [RE2][RE2_wiki] pattern y. |
+| `x.contains(y)`                                    | Returns true if the string x contains the substring y.                                        |
+| `x.startsWith(y)`                                  | Returns true if the string x begins with the substring y.                                     |
+| `x.endsWith(y)`                                    | Returns true if the string x ends with the substring y.                                       |
+| `timestamp(x)`, `timestamp.get*(x)`, `duration`    | Date/time functions.                                                                          |
+| `in`, `[]`                                         | Map/list indexing.                                                                            |
+| `has(m.x)`                                         | (macro) Returns true if the map `m` has the string `"x"` as a key.                            |
+| `int`, `uint`, `double`, `string`, `bytes`, `bool` | Conversions and identities.                                                                   |
+| `==`, `!=`, `>`, `<`, `<=`, `>=`                   | Comparisons.                                                                                  |
+| `or`, `&&`, `+`, `-`, `/`, `*`, `%`, `!`           | Basic functions.                                                                              |
 
 #### Supported CEL Variables
 
@@ -219,20 +220,20 @@ performance reasons, CEL variables should be resolved on
 demand ([`CelVariableResolver`](https://javadoc.io/doc/dev.cel/runtime/0.6.0/dev/cel/runtime/CelVariableResolver.html)
 in Java).
 
-| Attribute           | Type                  | gRPC source                                                                                                                    | Description                                                 |
-|---------------------|-----------------------|--------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
-| `request.path`      | `string`              | **CPP:** `metadata[":path"]` **Go:** `grpc.Method(ctx)` **Java:** `"/" + serverCall.getMethodDescriptor().getFullMethodName()` | The path portion of the URL.                                |
-| `request.url_path`  | `string`              | `Same as request.path`                                                                                                         | The path portion of the URL without the query string.       |
-| `request.host`      | `string`              | **CPP**, **Go**: `metadata[":authority"]` **Java**: `serverCall.getAuthority()`                                                | The host portion of the URL.                                |
-| `request.scheme`    | `string`              | `Not set`                                                                                                                      | The scheme portion of the URL.                              |
-| `request.method`    | `string`              | Hard-coded to `"POST"` if unavailable and a code audit confirms the server denies requests for all other method types.         | Request method.                                             |
-| `request.headers`   | `map<string, string>` | As defined in [gRFC A41][A41], "header" field.                                                                                 | All request headers indexed by the lower-cased header name. |
-| `request.referer`   | `string`              | `metadata["referer"]`                                                                                                          | Referer request header.                                     |
-| `request.useragent` | `string`              | `metadata["user-agent"]`                                                                                                       | User agent request header.                                  |
-| `request.time`      | `timestamp`           | Not set                                                                                                                        | Time of the first byte received.                            |
-| `request.id`        | `string`              | `metadata["x-request-id"]`                                                                                                     | Request ID.                                                 |
-| `request.protocol`  | `string`              | Not set                                                                                                                        | Request protocol.                                           |
-| `request.query`     | `string`              | Hard-coded to `""`.                                                                                                            | The query portion of the URL.                               |
+| Attribute           | Type                  | gRPC source                                                                                                                              | Description                                                 |
+|---------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
+| `request.path`      | `string`              | **CPP:** `metadata[":path"]`<br />**Go:** `grpc.Method(ctx)`<br />**Java:** `"/" + serverCall.getMethodDescriptor().getFullMethodName()` | The path portion of the URL.                                |
+| `request.url_path`  | `string`              | `Same as request.path`                                                                                                                   | The path portion of the URL without the query string.       |
+| `request.host`      | `string`              | **CPP**, **Go**: `metadata[":authority"]`<br />**Java**: `serverCall.getAuthority()`                                                     | The host portion of the URL.                                |
+| `request.scheme`    | `string`              | `Not set`                                                                                                                                | The scheme portion of the URL.                              |
+| `request.method`    | `string`              | Hard-coded to `"POST"` if unavailable and a code audit confirms the server denies requests for all other method types.                   | Request method.                                             |
+| `request.headers`   | `map<string, string>` | As defined in [gRFC A41][A41], "header" field.                                                                                           | All request headers indexed by the lower-cased header name. |
+| `request.referer`   | `string`              | `metadata["referer"]`                                                                                                                    | Referer request header.                                     |
+| `request.useragent` | `string`              | `metadata["user-agent"]`                                                                                                                 | User agent request header.                                  |
+| `request.time`      | `timestamp`           | Not set                                                                                                                                  | Time of the first byte received.                            |
+| `request.id`        | `string`              | `metadata["x-request-id"]`                                                                                                               | Request ID.                                                 |
+| `request.protocol`  | `string`              | Not set                                                                                                                                  | Request protocol.                                           |
+| `request.query`     | `string`              | Hard-coded to `""`.                                                                                                                      | The query portion of the URL.                               |
 
 ### Persistent Filter Cache
 
