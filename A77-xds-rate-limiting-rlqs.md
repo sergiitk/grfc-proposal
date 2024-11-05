@@ -16,10 +16,10 @@ servers.
 
 ## Background
 
-[Global rate limiting][https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting] allows
+[Global rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting) allows
 mesh users to manage fair consumption of their services and prevent misbehaving
 clients from overloading the services. We will
-implement [quota-based rate limiting][https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting#quota-based-rate-limiting],
+implement [quota-based rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting#quota-based-rate-limiting),
 where rate-limiting decisions are asynchronously offloaded
 to [Rate Limiting Quota Service (RLQS)][rlqs_proto]. Requests are grouped into
 buckets based on their metadata, and gRPC servers periodically report bucket
@@ -170,10 +170,10 @@ We will only support the latter, which is the preferred version for all new APIs
 using Unified Matcher.
 
 For RLQS, Unified Matcher tree will be provided in the filter
-config, [`bucket_matchers`][bucket_matchers] field. Evaluating the tree against
-RPC metadata will yield `RateLimitQuotaBucketSettings`, which contains the
-information needed to associate the RPC with `bucket_id` and the default rate
-limiting configuration.
+config, [`bucket_matchers`][rlqs_proto_bucket_matchers] field. Evaluating the
+tree against RPC metadata will yield `RateLimitQuotaBucketSettings`, which
+contains the information needed to associate the RPC with `bucket_id` and the
+default rate limiting configuration.
 
 In this iteration the following Unified Mather extensions will be supported:
 
