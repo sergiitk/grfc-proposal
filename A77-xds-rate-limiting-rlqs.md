@@ -167,19 +167,19 @@ RLQS implementations will provide a mechanism for new instances of the filter to
 
 **LDS 1**
 
-In this example, the RLQS filter is configured for three routes: r1, r2, and r3. Each unique config generates a unique RLQS Filter State: RlqsFilterState(c1) for the config c1, and RlqsFilterState(c2) for the config c2. After processing the first LDS update, we've generated onCallHandlers for three routes:
+In this example, the RLQS filter is configured for three routes: `r1`, `r2`, and `r3`. Each unique config generates a unique RLQS Filter State: `RlqsFilterState(c1)` for the config `c1`, and `RlqsFilterState(c2)` for the config `c2`. After processing the first LDS update, we've generated onCallHandlers for three routes:
 
-1. r1, referencing RlqsFilterState(c1).  
-2. r2, referencing RlqsFilterState(c2).  
-3. r3, also referencing RlqsFilterState(c2).
+1. `r1`, referencing `RlqsFilterState(c1)`.  
+2. `r2`, referencing `RlqsFilterState(c2)`.  
+3. `r3`, also referencing `RlqsFilterState(c2)`.
 
 **RDS 1**
 
-RDS 1 updates RLQS config for the route r1 so it's identical to config c2. We retrieve RlqsFilterState(c2) from the RLQS Cache and generate new onCallHandlers for route r2. RlqsFilterState(c1) is no longer referenced by any onCallHandler, and can be destroyed with all associated resources.
+RDS 1 updates RLQS config for the route `r1` so it's identical to config `c2`. We retrieve `RlqsFilterState(c2)` from the RLQS Cache and generate new onCallHandlers for route `r2`. `RlqsFilterState(c1)` is no longer referenced by any onCallHandler, and can be destroyed with all associated resources.
 
 **LDS 2**
 
-LDS 2 update removes r1 and r2, and adds new route r4 with the config identical to c2. While onCallHandlers for routes r1 and r2 are destroyed, RlqsFilterState(c2) is still used by two onCallHandlers, so it's preserved in RLQS Cache.
+LDS 2 update removes `r1` and `r2`, and adds new route r4 with the config identical to `c2`. While onCallHandlers for routes `r1` and `r2` are destroyed, `RlqsFilterState(c2)` is still used by two onCallHandlers, so it's preserved in RLQS Cache.
 
 ##### Future considerations
 
