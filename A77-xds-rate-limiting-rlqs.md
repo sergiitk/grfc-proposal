@@ -22,7 +22,7 @@ allows mesh users to manage fair consumption of their services and prevent
 misbehaving clients from overloading the services. We will
 implement [quota-based rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting#quota-based-rate-limiting),
 where rate-limiting decisions are asynchronously offloaded
-to [Rate Limiting Quota Service (RLQS)][rlqs_proto]. Requests are grouped into
+to [Rate Limiting Quota Service][rlqs_proto] (RLQS). Requests are grouped into
 buckets based on their metadata, and gRPC servers periodically report bucket
 usages. RLQS aggregates the data from different gRPC servers, and fairly
 distributes the quota among them. This approach is best suited for
@@ -33,40 +33,36 @@ To support RLQS, we'll need to implement several other xDS-related features,
 which are covered in the proposal:
 
 1. xDS Control Plane will provide RLQS connection details
-   in [the filter config][rlqs_filter_proto]
-   via [`GrpcService`][envoy_grpc_service] message.
+   in [the filter config][rlqs_filter_proto] via [`GrpcService`] message.
 2. Quota assignments will be configured
    via [`TokenBucket`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/v3/token_bucket.proto)
    message.
-3. RPCs will be matched into buckets
-   using [Unified Matcher API][envoy_matching_api_doc].
+3. RPCs will be matched into buckets using [Unified Matcher API].
 4. One of the matching mechanisms will be [CEL](https://cel.dev/) (Common
    Expression Language).
 5. RLQS filter state will persist across LDS/RDS updates using cache retention
-   mechanism similar to the one implemented
-   for [A83: xDS GCP Authentication Filter][A83_filter_cache].
+   mechanism similar to the one implemented for [gRFC A83].
 
 ### Related Proposals:
 
-* [A27: xDS-Based Global Load Balancing][A27]
-* [A36: xDS-Enabled Servers][A36]
-* [A39: xDS HTTP Filter Support][A39]
-* [A41: xDS RBAC Support][A41]
-* [A83: xDS GCP Authentication Filter][A83]
+* [A27: xDS-Based Global Load Balancing][gRFC A27]
+* [A36: xDS-Enabled Servers][gRFC A36]
+* [A39: xDS HTTP Filter Support][gRFC A39]
+* [A41: xDS RBAC Support][gRFC A41]
+* [A83: xDS GCP Authentication Filter][gRFC A83]
 
-[A27]: A27-xds-global-load-balancing.md
-[A41]: A41-xds-rbac.md
-[A39]: A39-xds-http-filters.md
-[A36]: A36-xds-for-servers.md
-[A83]: A83-xds-gcp-authn-filter.md
-[A83_filter_cache]: A83-xds-gcp-authn-filter.md#filter-call-credentials-cache
+[gRFC A27]: A27-xds-global-load-balancing.md
+[gRFC A41]: A41-xds-rbac.md
+[gRFC A36]: A36-xds-for-servers.md
+[gRFC A39]: A39-xds-http-filters.md
+[gRFC A83]: A83-xds-gcp-authn-filter.md
+
+[`GrpcService`]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc
+[Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
+[Envoy CEL environment]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
 
 [rlqs_proto]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/service/rate_limit_quota/v3/rlqs.proto.html
 [rlqs_filter_proto]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto
-[envoy_matching_api_doc]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
-[envoy_grpc_service]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc
-[envoy_cel]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
-[envoy_cel_request]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes#request-attributes
 
 ## Proposal
 
@@ -143,20 +139,19 @@ to the buckets.
 
 ### Connecting to xDS-configured Control Plane
 
-xDS Control Plane provides RLQS connection details
-in [`GrpcService`][envoy_grpc_service] message (already supported by Envoy),
-which contains the target URI, `channel_credentials`, and `call_credentials`. If
-the xDS Control Plane is compromised, the attacker could configure the xDS
-clients to talk to other malicious Control Plane, leading to such potential
-exploits as:
+xDS Control Plane provides RLQS connection details in [`GrpcService`] message (
+already supported by Envoy), which contains the target
+URI, `channel_credentials`, and `call_credentials`. If the xDS Control Plane is
+compromised, the attacker could configure the xDS clients to talk to other
+malicious Control Plane, leading to such potential exploits as:
 
 1. Leaking customer's Application Default Credentials OAuth token.
 2. Causing MalOut/DDoS by sending bad data from the compromised RLQS (f.e. set
    rate limit policy to `ALLOW_ALL`/`DENY_ALL`).
 
-To prevent that, we'll introduce the allowlist to the bootstrap file introduced
-in [gRFC A27](https://github.com/grpc/proposal/blob/master/A27-xds-global-load-balancing.md#xdsclient-and-bootstrap-file).
-This allowlist will be a map from the fully-qualified server target URI to an
+To prevent that, we'll introduce the allow-list to the bootstrap file introduced
+in [gRFC A27].
+This allow-list will be a map from the fully-qualified server target URI to an
 object containing channel credentials to use.
 
 ```javascript
@@ -177,7 +172,7 @@ object containing channel credentials to use.
 ```
 
 When a Control Plane is configured via `GrpcService.GoogleGrpc` message, we'll
-inspect the allowlist for the matching target URI.
+inspect the allow-list for the matching target URI.
 
 1. If target URI is not present, we don't create the connection to the requested
    Control Plane, and NACK the xDS resource.
@@ -186,13 +181,12 @@ inspect the allowlist for the matching target URI.
    security configuration provided by the TD is ignored.
 
 This solution is not specific to RLQS, and can (and should) be used with any
-other Control Planes configured via [GrpcService][envoy_grpc_service] message.
+other Control Planes configured via [`GrpcService`] message.
 
 ### Unified Matcher API
 
-RPCs will be matched into buckets
-using [Unified Matcher API][envoy_matching_api_doc] — an adaptable framework
-that can be used in any xDS component that needs matching features.
+RPCs will be matched into buckets using [Unified Matcher API] — an adaptable
+framework that can be used in any xDS component that needs matching features.
 
 Envoy provides two syntactically equivalent Unified Matcher
 definitions: [`envoy.config.common.matcher.v3.Matcher`](https://github.com/envoyproxy/envoy/blob/e3da7ebb16ad01c2ac7662758a75dba5cdc024ce/api/envoy/config/common/matcher/v3/matcher.proto)
@@ -219,8 +213,7 @@ We will support request metadata matching via CEL expressions. Only Canonical
 CEL and only checked expressions will be supported (`cel.expr.CheckedExpr`).
 
 CEL evaluation environment is a set of available variables and extension
-functions in a CEL program. We will
-match [Envoy's CEL environment][envoy_cel].
+functions in a CEL program. We will match [Envoy CEL environment].
 
 #### Supported CEL Functions
 
@@ -247,7 +240,8 @@ except comprehension-style macros.
 #### Supported CEL Variables
 
 For RLQS, only the `request` variable is supported in CEL expressions. We will
-adapt [Envoy's Request Attributes][envoy_cel#request-attributes] for gRPC.
+adapt [Envoy's Request Attributes](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes#request-attributes)
+for gRPC.
 
 | Attribute           | Type                  | gRPC source                  | Envoy Description                                           |
 |---------------------|-----------------------|------------------------------|-------------------------------------------------------------|
@@ -282,7 +276,7 @@ Hard-coded to `"POST"` if unavailable and a code audit confirms the server
 denies requests for all other method types.
 
 **<sup>4</sup> `request.headers`**\
-As defined in [gRFC A41][A41], "header" field.
+As defined in [gRFC A41], "header" field.
 
 ##### Implementation
 
@@ -298,7 +292,7 @@ provides the different variable resolving approaches based on the language:
 RLQS Filter State holds the bucket usage data, report timers and the
 bidirectional stream to the RLQS server. To prevent the loss of state across
 LDS/RDS updates, RLQS filter will require a cache retention mechanism similar to
-the one implemented for [A83: xDS GCP Authentication Filter][A83_filter_cache].
+the one implemented for [gRFC A83].
 
 The scope of each RLQS Filter Cache instance will be per server instance (same
 scope as the filter chain) and per filter name.
@@ -409,7 +403,7 @@ variable protection will be removed once the feature has proven stable.
 
 ##### Alternative protocol
 
-[Rate Limiting Service (RLS)](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting#per-connection-or-per-http-request-rate-limiting)
+[Rate Limiting Service (RLS)](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/rate_limit_filter)
 is another Global Rate Limiting solution supported by Envoy. While it's best
 suited for precise cases, where even a single request over the limit must be
 throttled, this approach performs synchronous (blocking) per-HTTP-request rate
@@ -429,4 +423,3 @@ compatible with such future protocol extension.
 
 * The initial implementation will be in Java.
 * C-core, Python, Go are TBD.
-
