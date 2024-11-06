@@ -1,5 +1,6 @@
 A77: xDS Server-Side Rate Limiting
 ======
+
 * Author(s): Sergii Tkachenko (@sergiitk)
 * Approver: Mark Roth (@markdroth)
 * Status: In Review
@@ -16,9 +17,9 @@ servers.
 
 ## Background
 
-[Global rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting) allows
-mesh users to manage fair consumption of their services and prevent misbehaving
-clients from overloading the services. We will
+[Global rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting)
+allows mesh users to manage fair consumption of their services and prevent
+misbehaving clients from overloading the services. We will
 implement [quota-based rate limiting](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/other_features/global_rate_limiting#quota-based-rate-limiting),
 where rate-limiting decisions are asynchronously offloaded
 to [Rate Limiting Quota Service (RLQS)][rlqs_proto]. Requests are grouped into
@@ -32,8 +33,8 @@ To support RLQS, we'll need to implement several other xDS-related features,
 which are covered in the proposal:
 
 1. xDS Control Plane will provide RLQS connection details
-   in [the filter config][rlqs_proto] via [`GrpcService`][envoy_grpc_service]
-   message.
+   in [the filter config][rlqs_filter_proto]
+   via [`GrpcService`][envoy_grpc_service] message.
 2. Quota assignments will be configured
    via [`TokenBucket`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/v3/token_bucket.proto)
    message.
@@ -41,8 +42,9 @@ which are covered in the proposal:
    using [Unified Matcher API][envoy_matching_api_doc].
 4. One of the matching mechanisms will be [CEL](https://cel.dev/) (Common
    Expression Language).
-5. Bucket cache will be retained across LDS/RDS updates using the approach
-   proposed in [A83: xDS GCP Authentication Filter][A83_filter_cache].
+5. RLQS filter state will persist across LDS/RDS updates using cache retention
+   mechanism similar to the one implemented
+   for [A83: xDS GCP Authentication Filter][A83_filter_cache].
 
 ### Related Proposals:
 
@@ -58,12 +60,13 @@ which are covered in the proposal:
 [A36]: A36-xds-for-servers.md
 [A83]: A83-xds-gcp-authn-filter.md
 [A83_filter_cache]: A83-xds-gcp-authn-filter.md#filter-call-credentials-cache
-[rlqs_proto]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto
-[rlqs_proto_bucket_matchers]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#envoy-v3-api-field-extensions-filters-http-rate-limit-quota-v3-ratelimitquotafilterconfig-bucket-matchers
+
+[rlqs_proto]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/service/rate_limit_quota/v3/rlqs.proto.html
+[rlqs_filter_proto]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto
 [envoy_matching_api_doc]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [envoy_grpc_service]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc
+[envoy_cel]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
 [envoy_cel_request]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes#request-attributes
-[RE2_wiki]: https://en.wikipedia.org/wiki/RE2_(software)
 
 ## Proposal
 
@@ -77,37 +80,29 @@ graph TD
 %% RLQS Components Flowchart v7
 
 %% == nodes ==
-rlqs_filter(RLQS HTTP Filter)
-rlqs_cache(RLQS Cache)
-rlqs_filter_state(RLQS Filter State)
-
-rlqs_client(RLQS Client)
-  rlqs_server[(RLQS Server)]
-rlqs_bucket_cache(RLQS Bucket Cache)
-report_timers(Report Timers)
-matcher_tree(Matcher Tree)
-rlqs_bucket(RLQS Bucket)
-
-rpc_handler("Filter's onClientCall handler")
-request{{RPC}}
-
+    rlqs_filter(RLQS HTTP Filter)
+    rlqs_cache(RLQS Cache)
+    rlqs_filter_state(RLQS Filter State)
+    rlqs_client(RLQS Client)
+    rlqs_server[(RLQS Server)]
+    rlqs_bucket_cache(RLQS Bucket Cache)
+    report_timers(Report Timers)
+    matcher_tree(Matcher Tree)
+    rlqs_bucket(RLQS Bucket)
+    rpc_handler("Filter's onClientCall handler")
+    request{{RPC}}
 %% == edges ==
-
-rlqs_filter -- "Get RLQS Filter State<br />per unique config" --> rlqs_cache -- "getOrCreate(config)" --> rlqs_filter_state
-rlqs_filter -- "Pass RLQS Filter State<br />for the route" --> rpc_handler -- "rateLimit(call)" --> rlqs_filter_state
-request --> rpc_handler
-
-rlqs_filter_state --o matcher_tree & report_timers
-rlqs_filter_state -- sendUsageReports --> rlqs_client
-rlqs_filter_state -- CRUD --> rlqs_bucket_cache
-rlqs_client -- onBucketsUpdate --> rlqs_filter_state
-
-rlqs_client <-. gRPC Stream .-> rlqs_server
-
-rlqs_bucket_cache -- "getOrCreate(bucketId)<br />Atomic Updates" --> rlqs_bucket
-
-style request stroke:RoyalBlue,stroke-width:2px;
-linkStyle 3,4 stroke:RoyalBlue,stroke-width:2px;
+    rlqs_filter -- " Get RLQS Filter State<br />per unique config " --> rlqs_cache -- " getOrCreate(config) " --> rlqs_filter_state
+    rlqs_filter -- " Pass RLQS Filter State<br />for the route " --> rpc_handler -- " rateLimit(call) " --> rlqs_filter_state
+    request --> rpc_handler
+    rlqs_filter_state --o matcher_tree & report_timers
+    rlqs_filter_state -- sendUsageReports --> rlqs_client
+    rlqs_filter_state -- CRUD --> rlqs_bucket_cache
+    rlqs_client -- onBucketsUpdate --> rlqs_filter_state
+    rlqs_client <-. gRPC Stream .-> rlqs_server
+    rlqs_bucket_cache -- " getOrCreate(bucketId)<br />Atomic Updates " --> rlqs_bucket
+    style request stroke: RoyalBlue, stroke-width: 2px;
+    linkStyle 3,4 stroke: RoyalBlue, stroke-width: 2px;
 ```
 
 ##### RLQS HTTP Filter
@@ -205,9 +200,8 @@ and [`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d7
 We will only support the latter, which is the preferred version for all new APIs
 using Unified Matcher.
 
-For RLQS, Unified Matcher tree will be provided in the filter
-config, [`bucket_matchers`][rlqs_proto_bucket_matchers] field. Evaluating the
-tree against RPC metadata will yield `RateLimitQuotaBucketSettings`, which
+For RLQS, Unified Matcher tree will be provided in the filter config. Evaluating
+the tree against RPC metadata will yield `RateLimitQuotaBucketSettings`, which
 contains the information needed to associate the RPC with `bucket_id` and the
 default rate limiting configuration.
 
@@ -226,7 +220,7 @@ CEL and only checked expressions will be supported (`cel.expr.CheckedExpr`).
 
 CEL evaluation environment is a set of available variables and extension
 functions in a CEL program. We will
-match [Envoy's CEL environment](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes).
+match [Envoy's CEL environment][envoy_cel].
 
 #### Supported CEL Functions
 
@@ -247,6 +241,8 @@ except comprehension-style macros.
 | `int`, `uint`, `double`, `string`, `bytes`, `bool` | Conversions and identities.                                                                   |
 | `==`, `!=`, `>`, `<`, `<=`, `>=`                   | Comparisons.                                                                                  |
 | `or`, `&&`, `+`, `-`, `/`, `*`, `%`, `!`           | Basic functions.                                                                              |
+
+[RE2_wiki]: https://en.wikipedia.org/wiki/RE2_(software)
 
 #### Supported CEL Variables
 
@@ -269,14 +265,17 @@ adapt [Envoy's Request Attributes][envoy_cel_request] for gRPC.
 | `request.query`     | `string`              | `""`                         | The query portion of the URL.                               |
 
 ##### Footnotes
+
 **<sup>1</sup> `request.path`**
-* CPP: `metadata[":path"]` 
-* Go: `grpc.Method(ctx)` 
-* Java: `"/" + serverCall.getMethodDescriptor().getFullMethodName()` 
+
+* CPP: `metadata[":path"]`
+* Go: `grpc.Method(ctx)`
+* Java: `"/" + serverCall.getMethodDescriptor().getFullMethodName()`
 
 **<sup>2</sup> `request.host`**
-* CPP, Go: `metadata[":authority"]` 
-* Java: `serverCall.getAuthority()` 
+
+* CPP, Go: `metadata[":authority"]`
+* Java: `serverCall.getAuthority()`
 
 **<sup>3</sup> `request.method`**\
 Hard-coded to `"POST"` if unavailable and a code audit confirms the server
@@ -299,8 +298,7 @@ provides the different variable resolving approaches based on the language:
 RLQS Filter State holds the bucket usage data, report timers and the
 bidirectional stream to the RLQS server. To prevent the loss of state across
 LDS/RDS updates, RLQS filter will require a cache retention mechanism similar to
-the one implemented
-for [A83: xDS GCP Authentication Filter](https://github.com/grpc/proposal/blob/master/A83-xds-gcp-authn-filter.md#filter-call-credentials-cache).
+the one implemented for [A83: xDS GCP Authentication Filter][A83_filter_cache].
 
 The scope of each RLQS Filter Cache instance will be per server instance (same
 scope as the filter chain) and per filter name.
@@ -323,44 +321,35 @@ config:
 sequenceDiagram
 
 %% gRFC: RLQS Filter Cache Lifecycle v1.1
-
-participant td as Control Plane
-participant filter as RLQS HTTP Filter
-participant cache as RLQS Cache
-participant e1 as RlqsFilterState(c1)
-participant e2 as RlqsFilterState(c2)
+    participant td as Control Plane
+    participant filter as RLQS HTTP Filter
+    participant cache as RLQS Cache
+    participant e1 as RlqsFilterState(c1)
+    participant e2 as RlqsFilterState(c2)
 
 # Notes
-Note right of td: r1-4: routes <br />c1-2: unique filter configs
-
+    Note right of td: r1-4: routes <br />c1-2: unique filter configs
 %% LDS 1
-td->>filter: LDS1<br />RLQS{r1=c1, r2=c2, r3=c2}
-
-filter->>cache: r1: getOrCreate(c1)
-cache->>+e1: new RlqsFilterState(c1)
-
-filter->>cache: r2: getOrCreate(c2)
-cache->>+e2: new RlqsFilterState(c2)
-
-filter->>cache: r3: getOrCreate(c2)
-Note over filter: r1: RlqsFilterState(c1)<br/>r2: RlqsFilterState(c2)<br/>r3: RlqsFilterState(c2)
-
+    td ->> filter: LDS1<br />RLQS{r1=c1, r2=c2, r3=c2}
+    filter ->> cache: r1: getOrCreate(c1)
+    cache ->>+ e1: new RlqsFilterState(c1)
+    filter ->> cache: r2: getOrCreate(c2)
+    cache ->>+ e2: new RlqsFilterState(c2)
+    filter ->> cache: r3: getOrCreate(c2)
+    Note over filter: r1: RlqsFilterState(c1)<br/>r2: RlqsFilterState(c2)<br/>r3: RlqsFilterState(c2)
 %% RDS 1
-td->>filter: RDS1<br />RLQS{r1=c2}
-filter->>cache: r1: getOrCreate(c2)
-filter->>cache: shutdownFilterState(c1)
-cache-xe1: RlqsFilterState(c1).shutdown()
-deactivate e1
-Note over filter: r1: RlqsFilterState(c2)<br/>r2: RlqsFilterState(c2)<br/>r3: RlqsFilterState(c2)
-
-
+    td ->> filter: RDS1<br />RLQS{r1=c2}
+    filter ->> cache: r1: getOrCreate(c2)
+    filter ->> cache: shutdownFilterState(c1)
+    cache -x e1: RlqsFilterState(c1).shutdown()
+    deactivate e1
+    Note over filter: r1: RlqsFilterState(c2)<br/>r2: RlqsFilterState(c2)<br/>r3: RlqsFilterState(c2)
 %% LDS 2
-td->>filter: LDS2<br />RLQS{r3=c2, r4=c2}
-filter->>cache: r4: getOrCreate(c2)
-Note over filter: r3: RlqsFilterState(c2)<br/>r4: RlqsFilterState(c2)
-
+    td ->> filter: LDS2<br />RLQS{r3=c2, r4=c2}
+    filter ->> cache: r4: getOrCreate(c2)
+    Note over filter: r3: RlqsFilterState(c2)<br/>r4: RlqsFilterState(c2)
 %% End
-deactivate e2
+    deactivate e2
 ```
 
 **LDS 1**
