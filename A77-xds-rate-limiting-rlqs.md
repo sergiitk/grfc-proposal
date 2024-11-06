@@ -401,7 +401,7 @@ variable protection will be removed once the feature has proven stable.
 
 ## Rationale
 
-##### Alternative protocol
+#### Alternative protocol
 
 [Rate Limiting Service (RLS)](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/rate_limit_filter)
 is another Global Rate Limiting solution supported by Envoy. While it's best
@@ -409,7 +409,7 @@ suited for precise cases, where even a single request over the limit must be
 throttled, this approach performs synchronous (blocking) per-HTTP-request rate
 limit check.
 
-##### xDS-configured Control Plane Trust
+#### xDS-configured Control Plane Trust
 
 The problem with a compromised xDS Control Plane configuring a connection to a
 malicious RLQS server may be solved holistically by signing xDS messages
