@@ -57,7 +57,8 @@ which are covered in the proposal:
 [gRFC A39]: A39-xds-http-filters.md
 [gRFC A83]: A83-xds-gcp-authn-filter.md
 
-[`GrpcService`]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc
+[`GrpcService`]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto
+[`GrpcService.GoogleGrpc`]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc
 [Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [Envoy CEL environment]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
 
@@ -137,10 +138,19 @@ manages a gRPC stream to the RLQS server. It's used by the filter state to send
 periodic bucket usage reports, and to receive new rate limit quota assignments
 to the buckets.
 
-### Connecting to xDS-configured Control Plane
+### Connecting to RLQS Control Plane
 
 xDS Control Plane provides RLQS connection details in [`GrpcService`] message (
-already supported by Envoy), which contains the target
+already supported by Envoy). `GrpcService` supports two modes: 
+
+1. `GrpcService.EnvoyGrpc`, Envoy's minimal custom gRPC client implementation.
+2. [`GrpcService.GoogleGrpc`], regular gRPC-cpp client.
+
+For obvious reasons, we'll only support the `GoogleGrpc` mode.
+
+#### Security Considerations
+
+In [`GrpcService.GoogleGrpc`], xDS Control Plane provides the target
 URI, `channel_credentials`, and `call_credentials`. If the xDS Control Plane is
 compromised, the attacker could configure the xDS clients to talk to other
 malicious Control Plane, leading to such potential exploits as:
@@ -150,9 +160,8 @@ malicious Control Plane, leading to such potential exploits as:
    rate limit policy to `ALLOW_ALL`/`DENY_ALL`).
 
 To prevent that, we'll introduce the allow-list to the bootstrap file introduced
-in [gRFC A27].
-This allow-list will be a map from the fully-qualified server target URI to an
-object containing channel credentials to use.
+in [gRFC A27]. This allow-list will be a map from the fully-qualified server
+target URI to an object containing channel credentials to use.
 
 ```javascript
 // The allowlist of Control Planes allowed to be configured via xDS.
@@ -171,8 +180,9 @@ object containing channel credentials to use.
 }
 ```
 
-When a Control Plane is configured via `GrpcService.GoogleGrpc` message, we'll
-inspect the allow-list for the matching target URI.
+When xDS Control Plane configures connection to another control plane
+via [`GrpcService.GoogleGrpc`] message, we'll inspect the allow-list for the
+matching target URI.
 
 1. If target URI is not present, we don't create the connection to the requested
    Control Plane, and NACK the xDS resource.
@@ -180,8 +190,9 @@ inspect the allow-list for the matching target URI.
    Plane using the channel credentials provided in the bootstrap file. Transport
    security configuration provided by the TD is ignored.
 
-This solution is not specific to RLQS, and can (and should) be used with any
-other Control Planes configured via [`GrpcService`] message.
+> [!IMPORTANT]
+> This solution is not specific to RLQS, and should be used with any
+> other Control Planes configured via [`GrpcService`] message.
 
 ### Unified Matcher API
 
@@ -392,6 +403,58 @@ latency-sensitive `onCallHandler`:
 
 Each gRPC implementation needs to consider what synchronization primitives are
 available in their language to minimize the thread lock time.
+
+### Reference Code Samples
+
+#### On Call Handler
+```java
+final RlqsFilterState filterState = rlqsCache.getOrCreateFilterState(config);
+
+return new ServerInterceptor() {
+  @Override
+  public <ReqT, RespT> Listener<ReqT> interceptCall(
+      ServerCall<ReqT, RespT> call,
+      Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+    // TODO: handle filter_enabled and filter_enforced
+
+    // RlqsClient matches the request into a bucket,
+    // and returns the rate limiting result.
+    RlqsRateLimitResult result =
+        filterState.rateLimit(HttpMatchInput.create(headers, call));
+
+    // Allowed.
+    if (result.isAllowed()) {
+      return next.startCall(call, headers);
+    }
+    // Denied: fail the call with given Status.
+    call.close(
+      result.denyResponse().status(),
+      result.denyResponse().headersToAdd());
+    return new ServerCall.Listener<ReqT>(){};
+  }
+};
+```
+
+#### Bucket Matching
+```java
+public RlqsRateLimitResult rateLimit(HttpMatchInput input) {
+  // Perform request matching. The result is RlqsBucketSettings.
+  RlqsBucketSettings bucketSettings = bucketMatchers.match(input);
+  // BucketId may be dynamic (f.e. based on headers).
+  RlqsBucketId bucketId = bucketSettings.bucketIdForRequest(input);
+
+  RlqsBucket bucket = bucketCache.getOrCreate(
+      bucketId, bucketSettings, this::onNewBucket);
+  return bucket.rateLimit();
+}
+
+private void onNewBucket(RlqsBucket newBucket) {
+  // The report for the first RPC is sent immediately.
+  scheduleImmediateReport(newBucket);
+  registerReportTimer(newBucket.getReportingInterval());
+}
+```
+
 
 ### Temporary environment variable protection
 
