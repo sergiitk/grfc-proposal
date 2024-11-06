@@ -404,7 +404,10 @@ latency-sensitive `onCallHandler`:
 Each gRPC implementation needs to consider what synchronization primitives are
 available in their language to minimize the thread lock time.
 
-### Reference Code Samples
+### Code Samples
+
+> [!NOTE]
+> Not a reference implementation. Only for flow illustration purposes.
 
 #### On Call Handler
 ```java
