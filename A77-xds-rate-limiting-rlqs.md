@@ -247,7 +247,7 @@ except comprehension-style macros.
 #### Supported CEL Variables
 
 For RLQS, only the `request` variable is supported in CEL expressions. We will
-adapt [Envoy's Request Attributes][envoy_cel_request] for gRPC.
+adapt [Envoy's Request Attributes][envoy_cel#request-attributes] for gRPC.
 
 | Attribute           | Type                  | gRPC source                  | Envoy Description                                           |
 |---------------------|-----------------------|------------------------------|-------------------------------------------------------------|
