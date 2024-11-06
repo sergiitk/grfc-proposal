@@ -443,8 +443,7 @@ public RlqsRateLimitResult rateLimit(HttpMatchInput input) {
   // BucketId may be dynamic (f.e. based on headers).
   RlqsBucketId bucketId = bucketSettings.bucketIdForRequest(input);
 
-  RlqsBucket bucket = bucketCache.getOrCreate(
-      bucketId, bucketSettings, this::onNewBucket);
+  RlqsBucket bucket = bucketCache.getOrCreate(bucketId, bucketSettings, this::onNewBucket);
   return bucket.rateLimit();
 }
 
