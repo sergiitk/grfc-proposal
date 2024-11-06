@@ -326,16 +326,16 @@ config:
 sequenceDiagram
 
 %% gRFC: RLQS Filter Cache Lifecycle v1.1
-    participant td as Control Plane
+    participant xds as Control Plane
     participant filter as RLQS HTTP Filter
     participant cache as RLQS Cache
     participant e1 as RlqsFilterState(c1)
     participant e2 as RlqsFilterState(c2)
 
 # Notes
-    Note right of td: r1-4: routes <br />c1-2: unique filter configs
+    Note right of xds: r1-4: routes <br />c1-2: unique filter configs
 %% LDS 1
-    td ->> filter: LDS1<br />RLQS{r1=c1, r2=c2, r3=c2}
+    xds ->> filter: LDS1<br />RLQS{r1=c1, r2=c2, r3=c2}
     filter ->> cache: r1: getOrCreate(c1)
     cache ->>+ e1: new RlqsFilterState(c1)
     filter ->> cache: r2: getOrCreate(c2)
@@ -343,14 +343,14 @@ sequenceDiagram
     filter ->> cache: r3: getOrCreate(c2)
     Note over filter: r1: RlqsFilterState(c1)<br/>r2: RlqsFilterState(c2)<br/>r3: RlqsFilterState(c2)
 %% RDS 1
-    td ->> filter: RDS1<br />RLQS{r1=c2}
+    xds ->> filter: RDS1<br />RLQS{r1=c2}
     filter ->> cache: r1: getOrCreate(c2)
     filter ->> cache: shutdownFilterState(c1)
     cache -x e1: RlqsFilterState(c1).shutdown()
     deactivate e1
     Note over filter: r1: RlqsFilterState(c2)<br/>r2: RlqsFilterState(c2)<br/>r3: RlqsFilterState(c2)
 %% LDS 2
-    td ->> filter: LDS2<br />RLQS{r3=c2, r4=c2}
+    xds ->> filter: LDS2<br />RLQS{r3=c2, r4=c2}
     filter ->> cache: r4: getOrCreate(c2)
     Note over filter: r3: RlqsFilterState(c2)<br/>r4: RlqsFilterState(c2)
 %% End
