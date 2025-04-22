@@ -6,7 +6,8 @@ A77: xDS Server-Side Rate Limiting
 * Status: In Review
 * Implemented in:
 * Last updated: 2025-04-22
-* Discussion at: `TODO(sergiitk): <google group thread>`
+* Discussion at:
+  - [ ] TODO(sergiitk): insert google group thread
 
 ## Abstract
 
@@ -43,7 +44,7 @@ which are covered in the proposal:
 5. RLQS filter state will persist across LDS/RDS updates using cache retention
    mechanism similar to the one implemented for [gRFC A83].
 
-### Related Proposals:
+### Related Proposals
 
 * [A27: xDS-Based Global Load Balancing][gRFC A27]
 * [A36: xDS-Enabled Servers][gRFC A36]
@@ -119,14 +120,15 @@ graph TD
 
 ##### RLQS xDS HTTP Filter: Channel Level
 
-<!-- TODO(sergiitk): clearly clarify what is xDS HTTP filter: java vs core -->
+- [ ] TODO(sergiitk): clearly clarify what is xDS HTTP filter: java vs core
 
 The filter parses the config, combines LDS filter config with RDS overrides, and
 generates the `onClientCall` handlers (aka interceptors in Java and Go, and
 filters in C++).
 
 ###### RLQS Cache
-<!-- TODO(sergiitk): verivy/update this block - merge cache into filter? -->
+
+- [ ] TODO(sergiitk): verivy/update this block - merge cache into filter?
 
 RLQS Cache persists across LDS/RDS updates. It maps unique filter configs to
 RLQS Filter State instances, and provides the thread safety for creating and
@@ -135,7 +137,7 @@ a 1:1 mapping.
 
 ##### RLQS xDS HTTP Filter: Call Level
 
-<!-- TODO(sergiitk): explain interceptor fields/role -->
+- [ ] TODO(sergiitk): explain interceptor fields/role
 
 ###### Code Sample: On Call Handler
 
@@ -222,11 +224,11 @@ private void onNewBucket(RlqsBucket newBucket) {
 
 #### RLQS Client
 
-TODO
+- [ ] TODO(sergiitk): explain RLQS Client
 
 #### RLQS Bucket Map
 
-TODO
+- [ ] TODO(sergiitk): explain bucket map
 
 ##### Multithreading
 
@@ -246,7 +248,8 @@ available in their language to minimize the thread lock time.
 
 #### On LDS/RDS Updates
 
-<!--  TODO(sergiitk): verify mlgen -->
+- [ ] TODO(sergiitk): verify mlgen
+
 When receiving an LDS/RDS update, the RLQS filter will:
 
 1.  Parse the new filter config.
@@ -268,18 +271,16 @@ already exist. If a new bucket was created, it sends a request on the RLQS
 stream informing the server of the bucket's creation. Finally, it returns the
 resulting rate-limit decision based on the bucket contents.
 
-<!-- 
-TODO: Matching
+- [ ] TODO(sergiitk): redo the next block?`
 RLQS Filter State evaluates the metadata against the matcher tree to match the
 request into a bucket. The Bucket holds the Rate Limit Quota assigned by the
 RLQS server (f.e. 100 requests per minute), and aggregates the number of
 requests it allowed/denied. This information is used to make the rate limiting
 decision.
--->
 
 #### On RLQS Server Response
 
-<!--  TODO(sergiitk): verify mlgen -->
+- [ ] TODO(sergiitk): verify mlgen
 
 When receiving a response from the RLQS server, the RLQS Client will:
 
@@ -290,7 +291,7 @@ When receiving a response from the RLQS server, the RLQS Client will:
 
 #### On Report Timers
 
-<!--  TODO(sergiitk): verify - moved from another place -->
+- [ ] TODO(sergiitk): verify - moved from another place
 
 The aggregated number of requests is reported to the RLQS server at configured
 intervals. The report action is triggered by the Report Timers. RLQS Client
@@ -458,8 +459,9 @@ provides the different variable resolving approaches based on the language:
 * Java: [`CelVariableResolver`](https://javadoc.io/doc/dev.cel/runtime/0.6.0/dev/cel/runtime/CelVariableResolver.html)
 
 #### Persistent Filter Cache
-<!-- TODO(sergiitk): move to A83 -->
-<!-- TODO(sergiitk): clearly clarify what is xDS HTTP filter: java vs core -->
+
+- [ ] TODO(sergiitk): move to A83
+- [ ] TODO(sergiitk): clearly clarify what is xDS HTTP filter: java vs core
 
 RLQS Filter State holds the bucket usage data, report timers and the
 bidirectional stream to the RLQS server. To prevent the loss of state across
