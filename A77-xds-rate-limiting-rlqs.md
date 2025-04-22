@@ -5,7 +5,7 @@ A77: xDS Server-Side Rate Limiting
 * Approver: Mark Roth (@markdroth)
 * Status: In Review
 * Implemented in:
-* Last updated: 2024-11-04
+* Last updated: 2025-04-22
 * Discussion at: `TODO(sergiitk): <google group thread>`
 
 ## Abstract
@@ -117,17 +117,27 @@ graph TD
     linkStyle 11 stroke: Teal, stroke-width: 3px;
 ```
 
-#### RLQS HTTP Filter
+##### RLQS xDS HTTP Filter: Channel Level
+
+<!-- TODO(sergiitk): clearly clarify what is xDS HTTP filter: java vs core -->
 
 The filter parses the config, combines LDS filter config with RDS overrides, and
 generates the `onClientCall` handlers (aka interceptors in Java and Go, and
 filters in C++).
 
-#### RLQS HTTP Filter: Channel Level
+###### RLQS Cache
+<!-- TODO(sergiitk): verivy/update this block - merge cache into filter? -->
 
-#### RLQS HTTP Filter: Call Level
+RLQS Cache persists across LDS/RDS updates. It maps unique filter configs to
+RLQS Filter State instances, and provides the thread safety for creating and
+accessing them. Each unique filter config generates a unique RLQS Filter state,
+a 1:1 mapping.
 
-##### Code Sample: On Call Handler
+##### RLQS xDS HTTP Filter: Call Level
+
+<!-- TODO(sergiitk): explain interceptor fields/role -->
+
+###### Code Sample: On Call Handler
 
 > [!NOTE]
 > Not a reference implementation. Only for flow illustration purposes.
@@ -159,13 +169,6 @@ return new ServerInterceptor() {
   }
 };
 ```
-
-#### RLQS Cache
-
-RLQS Cache persists across LDS/RDS updates. It maps unique filter configs to
-RLQS Filter State instances, and provides the thread safety for creating and
-accessing them. Each unique filter config generates a unique RLQS Filter state,
-a 1:1 mapping.
 
 #### RLQS Filter State
 
@@ -456,6 +459,7 @@ provides the different variable resolving approaches based on the language:
 
 #### Persistent Filter Cache
 <!-- TODO(sergiitk): move to A83 -->
+<!-- TODO(sergiitk): clearly clarify what is xDS HTTP filter: java vs core -->
 
 RLQS Filter State holds the bucket usage data, report timers and the
 bidirectional stream to the RLQS server. To prevent the loss of state across
