@@ -156,7 +156,7 @@ to the buckets.
 ### Connecting to RLQS Control Plane
 
 xDS Control Plane provides RLQS connection details in [`GrpcService`] message (
-already supported by Envoy). `GrpcService` supports two modes: 
+already supported by Envoy). `GrpcService` supports two modes:
 
 1. `GrpcService.EnvoyGrpc`, Envoy's minimal custom gRPC client implementation.
 2. [`GrpcService.GoogleGrpc`], regular gRPC-cpp client.
@@ -165,20 +165,17 @@ For obvious reasons, we'll only support the `GoogleGrpc` mode.
 
 #### Security Considerations
 
-In [`GrpcService.GoogleGrpc`], xDS Control Plane provides the target
-URI, `channel_credentials`, and `call_credentials`. If the xDS Control Plane is
-compromised, the attacker could configure the xDS clients to talk to other
-malicious Control Plane, leading to such potential exploits as:
+In [`GrpcService.GoogleGrpc`], the xDS Control Plane provides the target URI,
+`channel_credentials`, and `call_credentials`. If the xDS Control Plane is
+compromised, an attacker could configure the xDS clients to talk to other
+malicious Control Planes. This could lead to potential exploits such as leaking
+customer's Application Default Credentials OAuth token.
 
-1. Leaking customer's Application Default Credentials OAuth token.
-2. Causing MalOut/DDoS by sending bad data from the compromised RLQS (f.e. set
-   rate limit policy to `ALLOW_ALL`/`DENY_ALL`).
+To prevent that, we'll introduce an allow-list to the bootstrap file introduced
+in [gRFC A27]. This allow-list will be a map from a fully-qualified server
+target URI to an object containing channel credentials to use for that target.
 
-To prevent that, we'll introduce the allow-list to the bootstrap file introduced
-in [gRFC A27]. This allow-list will be a map from the fully-qualified server
-target URI to an object containing channel credentials to use.
-
-```javascript
+```js
 // The allowlist of Control Planes allowed to be configured via xDS.
 "allowed_grpc_services": {
   // The key is fully-qualified server URI.
@@ -186,7 +183,7 @@ target URI to an object containing channel credentials to use.
     // The value is an object containing "channel_creds".
     "channel_creds": [
       // The format is identical to xds_servers.channel_creds.
-      { 
+      {
         "type": "string containing channel cred type",
         "config": "optional JSON object containing config for the type"
       }
@@ -378,7 +375,7 @@ In this example, the RLQS filter is configured for three routes: `r1`, `r2`,
 and `r3`. Each unique config generates a unique RLQS Filter
 State: `RlqsFilterState(c1)` for the config `c1`, and `RlqsFilterState(c2)` for
 the config `c2`. After processing the first LDS update, we've generated
-onCallHandlers for three routes:
+`onCallHandlers` for three routes:
 
 1. `r1`, referencing `RlqsFilterState(c1)`.
 2. `r2`, referencing `RlqsFilterState(c2)`.
@@ -388,22 +385,22 @@ onCallHandlers for three routes:
 
 RDS 1 updates RLQS config for the route `r1` so it's identical to config `c2`.
 We retrieve `RlqsFilterState(c2)` from the RLQS Cache and generate new
-onCallHandlers for route `r2`. `RlqsFilterState(c1)` is no longer referenced by
-any onCallHandler, and can be destroyed with all associated resources.
+`onCallHandlers` for route `r2`. `RlqsFilterState(c1)` is no longer referenced
+by any `onCallHandler`, and can be destroyed with all associated resources.
 
 **LDS 2**
 
 LDS 2 update removes `r1` and `r2`, and adds new route r4 with the config
-identical to `c2`. While onCallHandlers for routes `r1` and `r2` are
-destroyed, `RlqsFilterState(c2)` is still used by two onCallHandlers, so it's
+identical to `c2`. While `onCallHandlers` for routes `r1` and `r2` are
+destroyed, `RlqsFilterState(c2)` is still used by two `onCallHandlers`, so it's
 preserved in RLQS Cache.
 
 ##### Future considerations
 
 With this proposal, the filter state is lost if change is made to the filter
 config, including updates to inconsequential fields such as deny response
-status. Additional logic can be introduced to handle updates to such fields
-while preserving the filter state.
+status. If this becomes a problem, additional logic can be introduced to handle
+updates to such fields while preserving the filter state.
 
 ### Multithreading
 
@@ -471,7 +468,6 @@ private void onNewBucket(RlqsBucket newBucket) {
   registerReportTimer(newBucket.getReportingInterval());
 }
 ```
-
 
 ### Temporary environment variable protection
 
