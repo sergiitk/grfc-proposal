@@ -117,35 +117,177 @@ graph TD
     linkStyle 11 stroke: Teal, stroke-width: 3px;
 ```
 
-##### RLQS HTTP Filter
+#### RLQS HTTP Filter
 
 The filter parses the config, combines LDS filter config with RDS overrides, and
 generates the `onClientCall` handlers (aka interceptors in Java and Go, and
 filters in C++).
 
-##### RLQS Cache
+#### RLQS HTTP Filter: Channel Level
+
+#### RLQS HTTP Filter: Call Level
+
+##### Code Sample: On Call Handler
+
+> [!NOTE]
+> Not a reference implementation. Only for flow illustration purposes.
+
+```java
+final RlqsFilterState filterState = rlqsCache.getOrCreateFilterState(config);
+
+return new ServerInterceptor() {
+  @Override
+  public <ReqT, RespT> Listener<ReqT> interceptCall(
+      ServerCall<ReqT, RespT> call,
+      Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+    // TODO: handle filter_enabled and filter_enforced
+
+    // RlqsClient matches the request into a bucket,
+    // and returns the rate limiting result.
+    RlqsRateLimitResult result =
+        filterState.rateLimit(HttpMatchInput.create(headers, call));
+
+    // Allowed.
+    if (result.isAllowed()) {
+      return next.startCall(call, headers);
+    }
+    // Denied: fail the call with given Status.
+    call.close(
+      result.denyResponse().status(),
+      result.denyResponse().headersToAdd());
+    return new ServerCall.Listener<ReqT>(){};
+  }
+};
+```
+
+#### RLQS Cache
 
 RLQS Cache persists across LDS/RDS updates. It maps unique filter configs to
 RLQS Filter State instances, and provides the thread safety for creating and
 accessing them. Each unique filter config generates a unique RLQS Filter state,
 a 1:1 mapping.
 
-##### RLQS Filter State
+#### RLQS Filter State
 
-RLQS Filter State contains the business logic for rate limiting, and the current
+In order to retain filter state across LDS/RDS updates, the actual logic for the
+RLQS filter will be moved into a separate object called RLQS Filter State, which
+will be stored in the persistent filter state mechanism described in [gRFC A83].
+The key in the persistent filter state will be the RLQS xDS HTTP filter config,
+which ensures that two RLQS filter instances with the same config will share
+filter state but two RLQS filter instances with different configs will each have
+their own filter state.
+
+RLQS Filter State object will include the following data members:
+
+-   Matcher Tree: From filter config, initialized at instantiation, constant.
+    Used to identify the bucket map entry for each data plane RPC.
+-   Bucket Map: Accessed on each data plane RPC, when we get a response from the
+    RLQS server, and when report timers fire.
+-   RLQS Client: Accessed when we get the first data plane RPC for a given
+    bucket and when a report timer fires. Notifies RLQS Filter State of
+    responses received from the RLQS server.
+-   Report Timer: Created/modified when we get an RLQS response for a given
+    bucket, or when a previous timer fires.
+
+<!-- RLQS Filter State contains the business logic for rate limiting, and the current
 state of rate limit assignments per bucket. RLQS Filter State is what's passed
 to the `onCallHandler`. It exposes the public "`rateLimit()`" method, which
-takes request metadata as an argument.
+takes request metadata as an argument. -->
 
-##### Matching
+##### Code Sample: Bucket Matching
 
+> [!NOTE]
+> Not a reference implementation. Only for flow illustration purposes.
+
+```java
+public RlqsRateLimitResult rateLimit(HttpMatchInput input) {
+  // Perform request matching. The result is RlqsBucketSettings.
+  RlqsBucketSettings bucketSettings = bucketMatchers.match(input);
+  // BucketId may be dynamic (f.e. based on headers).
+  RlqsBucketId bucketId = bucketSettings.bucketIdForRequest(input);
+
+  RlqsBucket bucket = bucketCache.getOrCreate(bucketId, bucketSettings, this::onNewBucket);
+  return bucket.rateLimit();
+}
+
+private void onNewBucket(RlqsBucket newBucket) {
+  // The report for the first RPC is sent immediately.
+  scheduleImmediateReport(newBucket);
+  registerReportTimer(newBucket.getReportingInterval());
+}
+```
+
+#### RLQS Client
+
+TODO
+
+#### RLQS Bucket Map
+
+TODO
+
+##### Multithreading
+
+There are several mutex-synchronized operations executed in
+latency-sensitive `onCallHandler`:
+
+1. Inserting/reading a bucket from the bucket cache using `bucket_id`. Note
+   that `bucket_id` is represented as a `Map<String, String>`, which may
+   introduce complexities in efficient cache sharding for certain programming
+   languages.
+2. Incrementing `num_request_allowed`/`num_request_denied` bucket counters.
+
+Each gRPC implementation needs to consider what synchronization primitives are
+available in their language to minimize the thread lock time.
+
+### Handling Events
+
+#### On LDS/RDS Updates
+
+<!--  TODO(sergiitk): verify mlgen -->
+When receiving an LDS/RDS update, the RLQS filter will:
+
+1.  Parse the new filter config.
+2.  Retrieve the corresponding RLQS Filter State from the RLQS Cache, creating
+    it if it doesn't exist.
+3.  Generate new `onClientCall` handlers (interceptors) using the retrieved
+    RLQS Filter State.
+4.  Update the filter chain with the new `onClientCall` handlers.
+5.  Release the RLQS Filter State from the cache if it's no longer referenced
+    by any `onClientCall` handlers.
+
+#### On Data Plane RPC
+
+When processing each data plane RPC, the RLQS filter will ask the RLQS filter
+state for a rate-limit decision for the RPC. The RLQS filter state uses the
+matcher tree from the filter config to determine which bucket to use for the
+RPC. It then looks for that bucket in the bucket map, creating it if it doesn't
+already exist. If a new bucket was created, it sends a request on the RLQS
+stream informing the server of the bucket's creation. Finally, it returns the
+resulting rate-limit decision based on the bucket contents.
+
+<!-- 
+TODO: Matching
 RLQS Filter State evaluates the metadata against the matcher tree to match the
 request into a bucket. The Bucket holds the Rate Limit Quota assigned by the
 RLQS server (f.e. 100 requests per minute), and aggregates the number of
 requests it allowed/denied. This information is used to make the rate limiting
 decision.
+-->
 
-##### Reporting
+#### On RLQS Server Response
+
+<!--  TODO(sergiitk): verify mlgen -->
+
+When receiving a response from the RLQS server, the RLQS Client will:
+
+1.  Parse the response.
+2.  Match the response to the corresponding buckets.
+3.  Update the rate limit quota assignments in the corresponding buckets.
+4.  Notify the RLQS Filter State of the new assignments.
+
+#### On Report Timers
+
+<!--  TODO(sergiitk): verify - moved from another place -->
 
 The aggregated number of requests is reported to the RLQS server at configured
 intervals. The report action is triggered by the Report Timers. RLQS Client
@@ -153,7 +295,9 @@ manages a gRPC stream to the RLQS server. It's used by the filter state to send
 periodic bucket usage reports, and to receive new rate limit quota assignments
 to the buckets.
 
-### Connecting to RLQS Control Plane
+### Integrations
+
+#### Connecting to RLQS Control Plane
 
 xDS Control Plane provides RLQS connection details in [`GrpcService`] message (
 already supported by Envoy). `GrpcService` supports two modes:
@@ -163,7 +307,7 @@ already supported by Envoy). `GrpcService` supports two modes:
 
 For obvious reasons, we'll only support the `GoogleGrpc` mode.
 
-#### Security Considerations
+##### Security Considerations
 
 In [`GrpcService.GoogleGrpc`], the xDS Control Plane provides the target URI,
 `channel_credentials`, and `call_credentials`. If the xDS Control Plane is
@@ -175,7 +319,7 @@ To prevent that, we'll introduce an allow-list to the bootstrap file introduced
 in [gRFC A27]. This allow-list will be a map from a fully-qualified server
 target URI to an object containing channel credentials to use for that target.
 
-```js
+```json5
 // The allowlist of Control Planes allowed to be configured via xDS.
 "allowed_grpc_services": {
   // The key is fully-qualified server URI.
@@ -206,7 +350,7 @@ matching target URI.
 > This solution is not specific to RLQS, and should be used with any
 > other Control Planes configured via [`GrpcService`] message.
 
-### Unified Matcher API
+#### Unified Matcher API
 
 RPCs will be matched into buckets using [Unified Matcher API] — an adaptable
 framework that can be used in any xDS component that needs matching features.
@@ -230,7 +374,7 @@ In this iteration the following Unified Mather extensions will be supported:
 2. Custom Matchers:
     1. [`CelMatcher`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/cel.proto.html)
 
-### CEL Integration
+#### CEL Integration
 
 We will support request metadata matching via CEL expressions. Only Canonical
 CEL and only checked expressions will be supported (`cel.expr.CheckedExpr`).
@@ -238,7 +382,7 @@ CEL and only checked expressions will be supported (`cel.expr.CheckedExpr`).
 CEL evaluation environment is a set of available variables and extension
 functions in a CEL program. We will match [Envoy CEL environment].
 
-#### Supported CEL Functions
+##### Supported CEL Functions
 
 Similar to Envoy, we will
 support [standard CEL functions](https://github.com/google/cel-spec/blob/c629b2be086ed6b4c44ef4975e56945f66560677/doc/langdef.md#standard-definitions)
@@ -260,7 +404,7 @@ except comprehension-style macros.
 
 [RE2_wiki]: https://en.wikipedia.org/wiki/RE2_(software)
 
-#### Supported CEL Variables
+##### Supported CEL Variables
 
 For RLQS, only the `request` variable is supported in CEL expressions. We will
 adapt [Envoy's Request Attributes](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes#request-attributes)
@@ -281,7 +425,7 @@ for gRPC.
 | `request.protocol`  | `string`              | Not set                      | Request protocol.                                           |
 | `request.query`     | `string`              | `""`                         | The query portion of the URL.                               |
 
-##### Footnotes
+###### Footnotes
 
 **<sup>1</sup> `request.path`**
 
@@ -310,7 +454,8 @@ provides the different variable resolving approaches based on the language:
 * Go: [`Activation.ResolveName(string)`](https://github.com/google/cel-go/blob/3f12ecad39e2eb662bcd82b6391cfd0cb4cb1c5e/interpreter/activation.go#L30)
 * Java: [`CelVariableResolver`](https://javadoc.io/doc/dev.cel/runtime/0.6.0/dev/cel/runtime/CelVariableResolver.html)
 
-### Persistent Filter Cache
+#### Persistent Filter Cache
+<!-- TODO(sergiitk): move to A83 -->
 
 RLQS Filter State holds the bucket usage data, report timers and the
 bidirectional stream to the RLQS server. To prevent the loss of state across
@@ -401,73 +546,6 @@ With this proposal, the filter state is lost if change is made to the filter
 config, including updates to inconsequential fields such as deny response
 status. If this becomes a problem, additional logic can be introduced to handle
 updates to such fields while preserving the filter state.
-
-### Multithreading
-
-There are several mutex-synchronized operations executed in
-latency-sensitive `onCallHandler`:
-
-1. Inserting/reading a bucket from the bucket cache using `bucket_id`. Note
-   that `bucket_id` is represented as a `Map<String, String>`, which may
-   introduce complexities in efficient cache sharding for certain programming
-   languages.
-2. Incrementing `num_request_allowed`/`num_request_denied` bucket counters.
-
-Each gRPC implementation needs to consider what synchronization primitives are
-available in their language to minimize the thread lock time.
-
-### Code Samples
-
-> [!NOTE]
-> Not a reference implementation. Only for flow illustration purposes.
-
-#### On Call Handler
-```java
-final RlqsFilterState filterState = rlqsCache.getOrCreateFilterState(config);
-
-return new ServerInterceptor() {
-  @Override
-  public <ReqT, RespT> Listener<ReqT> interceptCall(
-      ServerCall<ReqT, RespT> call,
-      Metadata headers, ServerCallHandler<ReqT, RespT> next) {
-    // TODO: handle filter_enabled and filter_enforced
-
-    // RlqsClient matches the request into a bucket,
-    // and returns the rate limiting result.
-    RlqsRateLimitResult result =
-        filterState.rateLimit(HttpMatchInput.create(headers, call));
-
-    // Allowed.
-    if (result.isAllowed()) {
-      return next.startCall(call, headers);
-    }
-    // Denied: fail the call with given Status.
-    call.close(
-      result.denyResponse().status(),
-      result.denyResponse().headersToAdd());
-    return new ServerCall.Listener<ReqT>(){};
-  }
-};
-```
-
-#### Bucket Matching
-```java
-public RlqsRateLimitResult rateLimit(HttpMatchInput input) {
-  // Perform request matching. The result is RlqsBucketSettings.
-  RlqsBucketSettings bucketSettings = bucketMatchers.match(input);
-  // BucketId may be dynamic (f.e. based on headers).
-  RlqsBucketId bucketId = bucketSettings.bucketIdForRequest(input);
-
-  RlqsBucket bucket = bucketCache.getOrCreate(bucketId, bucketSettings, this::onNewBucket);
-  return bucket.rateLimit();
-}
-
-private void onNewBucket(RlqsBucket newBucket) {
-  // The report for the first RPC is sent immediately.
-  scheduleImmediateReport(newBucket);
-  registerReportTimer(newBucket.getReportingInterval());
-}
-```
 
 ### Temporary environment variable protection
 
