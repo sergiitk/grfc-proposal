@@ -81,7 +81,7 @@ config:
     clusterBorder: "#777"
 ---
 graph TD
-%% RLQS Components Flowchart v8
+%% RLQS Components Flowchart v9
 
 %% == nodes ==
     subgraph grpc_client_box [gRPC Client]
@@ -91,8 +91,7 @@ graph TD
         rlqs[(RLQS)]
     end
     subgraph grpc_server_box [gRPC Server]
-        rlqs_filter(RLQS HTTP Filter)
-        rlqs_cache(RLQS Cache)
+        rlqs_filter(RLQS xDS HTTP Filter)
         subgraph rlqs_filter_state_box [RLQS Filter State]
             rlqs_client(RLQS Client)
             rlqs_filter_state(RLQS Filter State)
@@ -104,7 +103,7 @@ graph TD
         rpc_handler("Filter's onClientCall handler")
     end
 %% == edges ==
-    rlqs_filter -- " Get RLQS Filter State<br />per unique config " --> rlqs_cache -- " getOrCreate(config) " --> rlqs_filter_state
+    rlqs_filter -- " GetOrCreate RLQS Filter State<br />per unique config " --> rlqs_filter_state
     rlqs_filter -- " Pass RLQS Filter State<br />for the route " --> rpc_handler -- " rateLimit(call) " --> rlqs_filter_state
     request --> rpc_handler
     rlqs_filter_state --o matcher_tree & report_timers
@@ -114,8 +113,8 @@ graph TD
     rlqs_bucket_cache -- " getOrCreate(bucketId)<br />Atomic Updates " --> rlqs_bucket
     rlqs_client <-. gRPC Stream .-> rlqs
     style request stroke: RoyalBlue, stroke-width: 2px;
-    linkStyle 3,4 stroke: RoyalBlue, stroke-width: 2px;
-    linkStyle 11 stroke: Teal, stroke-width: 3px;
+    linkStyle 2,3 stroke: RoyalBlue, stroke-width: 2px;
+    linkStyle 10 stroke: Teal, stroke-width: 3px;
 ```
 
 ##### RLQS xDS HTTP Filter: Channel Level
