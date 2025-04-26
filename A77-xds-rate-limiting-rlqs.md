@@ -119,56 +119,105 @@ graph TD
 
 ##### RLQS xDS HTTP Filter: Channel Level
 
-- [ ] TODO(sergiitk): clearly clarify what is xDS HTTP filter: java vs core
+For each route, the filter creates an internal RLQS Filter Config object by
+combining the LDS filter config with any RDS config overrides. Two routes with
+the same combined filter configuration should result in identical RLQS Filter
+Config objects.
 
-The filter parses the config, combines LDS filter config with RDS overrides, and
-generates the `onClientCall` handlers (aka interceptors in Java and Go, and
-filters in C++).
+For each unique RLQS Filter Config, the filter creates a corresponding RLQS
+Filter State object. To track the uniqueness of RLQS Filter Configs, the filter
+will maintain a map from RLQS Filter Configs to their respective RLQS Filter
+State instances. This map will be stored in the persistent filter state
+mechanism described in [gRFC A83].
 
-###### RLQS Cache
+Channel-level RLQS xDS HTTP Filter object will include the following data
+members:
 
-- [ ] TODO(sergiitk): verivy/update this block - merge cache into filter?
-
-RLQS Cache persists across LDS/RDS updates. It maps unique filter configs to
-RLQS Filter State instances, and provides the thread safety for creating and
-accessing them. Each unique filter config generates a unique RLQS Filter state,
-a 1:1 mapping.
-
-##### RLQS xDS HTTP Filter: Call Level
-
-- [ ] TODO(sergiitk): explain interceptor fields/role
-
-###### Code Sample: On Call Handler
+-   RLQS Filter State Cache: from filter config, initialized at instantiation,
+    retained across LDS/RDS updates. A 1:1 mapping between unique RLQS Filter
+    Config instances and corresponding unique RLQS Filter State instances.
 
 > [!NOTE]
 > Not a reference implementation. Only for flow illustration purposes.
 
 ```java
-final RlqsFilterState filterState = rlqsCache.getOrCreateFilterState(config);
+final class RlqsFilter implements Filter {
+  private final ConcurrentMap<RlqsFilterConfig, RlqsFilterState>
+      filterStateCache = new ConcurrentHashMap<>();
+  // ...
 
-return new ServerInterceptor() {
   @Override
-  public <ReqT, RespT> Listener<ReqT> interceptCall(
-      ServerCall<ReqT, RespT> call,
-      Metadata headers, ServerCallHandler<ReqT, RespT> next) {
-    // TODO: handle filter_enabled and filter_enforced
+  public ServerInterceptor buildServerInterceptor(
+      FilterConfig config, @Nullable FilterConfig overrideConfig) {
+    // Parse the filter config.
+    RlqsFilterConfig.Builder rlqsConfigBuilder = parseRlqsConfig(config);
 
+    // Merge with per-route overrides if provided.
+    if (overrideConfig instanceof RlqsConfigOverride rlqsConfigOverride) {
+      // Only domain and matchers can be overriden.
+      if (!rlqsConfigOverride.domain().isEmpty()) {
+        rlqsConfigBuilder.domain(rlqsConfigOverride.domain());
+      }
+      if (rlqsConfigOverride.bucketMatchers() != null) {
+        rlqsConfigBuilder.bucketMatchers(rlqsConfigOverride.bucketMatchers());
+      }
+    }
+
+    // Get or Create RLQS Filter Config instance from A83 cache.
+    RlqsFilterState rlqsFilterState = filterStateCache.computeIfAbsent(
+      rlqsConfigBuilder.build(),
+      (cfg) -> new RlqsFilterState(cfg, getRlqsServerInfo(cfg.rlqsService()))
+    );
+    return new RlqsServerInterceptor(rlqsFilterState);
+  }
+}
+```
+
+##### RLQS xDS HTTP Filter: Call Level
+
+When processing a data plane RPC for a given route, the filter passes the RPC
+metadata to the corresponding RLQS Filter State instance for evaluation. Based
+on the evaluation result, the filter either allows the RPC to proceed, or denies
+it with a specific gRPC status. The evaluation result may also contain a list of
+HTTP headers to add to the original request, or the deny response.
+
+Call-level RLQS xDS HTTP Filter object will include the following data members:
+
+-   RLQS Filter State instance corresponding route's RLQS Filter Config:
+    implementation-dependent.
+
+> [!NOTE]
+> Not a reference implementation. Only for flow illustration purposes.
+
+```java
+private static class RlqsServerInterceptor implements ServerInterceptor {
+  private final RlqsFilterState rlqsFilterState;
+
+  public RlqsServerInterceptor(RlqsFilterState rlqsFilterState) {
+    this.rlqsFilterState = rlqsFilterState;
+  }
+
+  @Override
+  public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+      ServerCall<ReqT, RespT> call, Metadata headers,
+      ServerCallHandler<ReqT, RespT> next) {
     // RlqsClient matches the request into a bucket,
     // and returns the rate limiting result.
     RlqsRateLimitResult result =
-        filterState.rateLimit(HttpMatchInput.create(headers, call));
+        rlqsFilterState.rateLimit(HttpMatchInput.create(headers, call));
 
-    // Allowed.
     if (result.isAllowed()) {
+      // TODO: append request_headers_to_add_when_not_enforced
       return next.startCall(call, headers);
     }
+
     // Denied: fail the call with given Status.
     call.close(
       result.denyResponse().status(),
       result.denyResponse().headersToAdd());
     return new ServerCall.Listener<ReqT>(){};
   }
-};
+}
 ```
 
 #### RLQS Filter State
