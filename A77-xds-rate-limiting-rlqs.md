@@ -83,7 +83,7 @@ config:
     clusterBorder: "#777"
 ---
 graph TD
-%% RLQS Components Flowchart v9
+%% RLQS Components Flowchart v10
 
 %% == nodes ==
     subgraph grpc_client_box [gRPC Client]
@@ -93,30 +93,31 @@ graph TD
         rlqs[(RLQS)]
     end
     subgraph grpc_server_box [gRPC Server]
-        rlqs_filter(RLQS xDS HTTP Filter)
+        rlqs_filter(RLQS Filter: Channel Level)
+        rlqs_filter_state_cache(RLQS Filter State Cache)
         subgraph rlqs_filter_state_box [RLQS Filter State]
             rlqs_client(RLQS Client)
             rlqs_filter_state(RLQS Filter State)
             report_timers(Report Timers)
             matcher_tree(Matcher Tree)
-            rlqs_bucket_cache(RLQS Bucket Cache)
+            rlqs_bucket_map(RLQS Bucket Map)
             rlqs_bucket(RLQS Bucket)
         end
-        rpc_handler("Filter's onClientCall handler")
+        rpc_handler("RLQS Filter: Call Level")
     end
 %% == edges ==
-    rlqs_filter -- " GetOrCreate RLQS Filter State<br />per unique config " --> rlqs_filter_state
-    rlqs_filter -- " Pass RLQS Filter State<br />for the route " --> rpc_handler -- " rateLimit(call) " --> rlqs_filter_state
+    rlqs_filter -- "Get RLQS Filter State<br />per unique config" --> rlqs_filter_state_cache -- "getOrCreate(config)" --> rlqs_filter_state
+    rlqs_filter -- " Generate per-route RPC handlers<br />using RLQS Filter State " --> rpc_handler -- " rlqsFilterState.rateLimit(call) " --> rlqs_filter_state
     request --> rpc_handler
     rlqs_filter_state --o matcher_tree & report_timers
     rlqs_filter_state -- sendUsageReports --> rlqs_client
-    rlqs_filter_state -- CRUD --> rlqs_bucket_cache
+    rlqs_filter_state -- CRUD --> rlqs_bucket_map
     rlqs_client -- onBucketsUpdate --> rlqs_filter_state
-    rlqs_bucket_cache -- " getOrCreate(bucketId)<br />Atomic Updates " --> rlqs_bucket
+    rlqs_bucket_map -- " getOrCreate(bucketId)<br />Atomic Updates " --> rlqs_bucket
     rlqs_client <-. gRPC Stream .-> rlqs
     style request stroke: RoyalBlue, stroke-width: 2px;
-    linkStyle 2,3 stroke: RoyalBlue, stroke-width: 2px;
-    linkStyle 10 stroke: Teal, stroke-width: 3px;
+    linkStyle 3,4 stroke: RoyalBlue, stroke-width: 2px;
+    linkStyle 11 stroke: Teal, stroke-width: 3px;
 ```
 
 #### RLQS xDS HTTP Filter: Channel Level
@@ -237,7 +238,7 @@ RLQS Filter State object will include the following data members:
 
 -   Matcher Tree: From filter config, initialized at instantiation, constant.
     Used to identify the RLQS Bucket for each data plane RPC.
--   RLQS Bucket Cache: Accessed on each data plane RPC, when we get a response
+-   RLQS Bucket Map: Accessed on each data plane RPC, when we get a response
     from the RLQS server, and when report timers fire.
 -   RLQS Client: Accessed when we get the first data plane RPC for a given
     bucket and when a report timer fires. Notifies RLQS Filter State of
@@ -247,7 +248,7 @@ RLQS Filter State object will include the following data members:
     -   Entries inserted we get the first data plane RPC for a given bucket and
         there's no key for bucket reporting interval.
     -   Entries deleted when there's more buckets with given reporting interval
-        in RLQS Bucket Cache.
+        in RLQS Bucket Map.
 
 Pseudo-code for RLQS Filter State RPC rate limiting:
 
@@ -292,28 +293,27 @@ final class RlqsFilterState {
 }
 ```
 
-#### RLQS Bucket Cache
+#### RLQS Bucket Map
 
-The RLQS Bucket Cache is responsible for storing and managing the lifecycle of
-RLQS Buckets. It provides a thread-safe way to access and update buckets,
+The RLQS Bucket Map class is responsible for storing and managing the lifecycle
+of RLQS Buckets. It provides a thread-safe way to access and update buckets,
 ensuring that only one instance of a RLQS bucket exists for a given `bucket_id`.
-The cache also allows to retrieve all buckets that need to be reported to the
+RLQS Bucket Map allows to retrieve all buckets that need to be reported to the
 RLQS server at a given reporting interval. Depending on implementation, this
 component may be inlined into RLQS Filter State.
 
-RLQS Bucket Cache object will include the following data members:
+RLQS Bucket Map object will include the following data members:
 
--   Buckets Map: Initialized empty at instantiation, thread-safe. Entries
-    retrieved on each data plane RPC and when report timers fire. Entries
-    inserted when we get the first data plane RPC for a given bucket, or when
-    instructed by the RLQS Server. Entries are deleted either by RLQS server via
-    `abandon_action`, or on report timers if a bucket's active assignment
-    expires.
+-   Bucket Map: Initialized empty at instantiation, thread-safe.
+    -   Entries retrieved on each data plane RPC and when report timers fire.
+    -   Entries inserted when we get the first data plane RPC for a given
+        bucket, or when instructed by the RLQS Server.
+    -   Entries deleted either by RLQS server via `abandon_action`, or on report
+        timers if a bucket's active assignment expires.
 -   Buckets Per Interval Map: Initialized empty at instantiation, thread-safe.
-    Entries retrieved when a report timer fires. Entries inserted and deleted at
-    the same time as Buckets Map. Used to efficiently access the set of buckets
-    for a given report interval. A map from reporting interval to a set of
-    `RlqsBucket` instances.
+    Used to track the buckets per discovered report intervals.
+    -   Entries retrieved when a report timer fires.
+    -   Entries inserted and deleted in lock step with Buckets Map updates.
 
 ##### RLQS Bucket
 
@@ -337,12 +337,12 @@ RLQS Bucket object will include the following data members:
     report timers and RLQS server responses. Tracks the number allowed/denied
     requests for the bucket.
 
-##### RLQS Bucket Cache Multithreading
+##### RLQS Buckets and Multithreading
 
 There are several mutex-synchronized operations on RLQS buckets that are
 executed during latency-sensitive data plane RPC processing:
 
-1. Inserting/reading a bucket from the RLQS Bucket Cache using `bucket_id`. Note
+1. Inserting/reading a bucket from the RLQS Bucket Map using `bucket_id`. Note
    that `bucket_id` is represented as a `Map<String, String>`, which may
    introduce complexities in efficient cache sharding for certain programming
    languages.
@@ -393,8 +393,8 @@ plane RPC handlers.
 When processing each data plane RPC, the RLQS Filter will ask the RLQS Filter
 State for a rate-limit decision for the RPC. The RLQS Filter State uses the
 matcher tree from the filter config to determine which bucket to use for the
-RPC. It then looks for that RLQS Bucket in the RLQS Bucket Cache map, creating
-it if it doesn't already exist.
+RPC. It then looks for that RLQS Bucket in the RLQS Bucket Map, creating it if
+it doesn't already exist.
 
 If a new bucket has been created, the RPC is rate-limited according to bucket's
 default configuration. Then the filter schedules a report on the RLQS stream
@@ -410,7 +410,7 @@ counter.
 When receiving an RLQS Server Response, the RLQS Client passes parsed response
 to the RLQS Filter State. The RLQS Filter State iterates through the bucket
 assignments in the response, and updates the corresponding buckets in the RLQS
-Bucket Cache. Buckets marked to be abandoned are purged from the cache.
+Bucket Map. Buckets marked to be abandoned are purged from the cache.
 
 If a bucket has a new rate limit assignment, the bucket's active assignment is
 updated and bucket usage counters are reset. Otherwise, only the assignment
@@ -419,9 +419,9 @@ expiration is updated.
 #### On Report Timers
 
 When a report timer fires, the RLQS Filter State retrieves all buckets with the
-corresponding reporting interval from the RLQS Bucket Cache. For each bucket,
-the filter snapshots the current usage counters, and resets them. The filter
-then sends the snapshot to RLQS server using RLQS Client.
+corresponding reporting interval from the RLQS Bucket Map. For each bucket, the
+filter snapshots the current usage counters, and resets them. The filter then
+sends the snapshot to RLQS server using RLQS Client.
 
 If a bucket's active assignment has expired, the bucket is removed from the
 cache. If there are no more buckets with the given reporting interval, the
