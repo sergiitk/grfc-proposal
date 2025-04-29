@@ -5,7 +5,7 @@ A77: xDS Server-Side Rate Limiting
 * Approver: Mark Roth (@markdroth)
 * Status: In Review
 * Implemented in:
-* Last updated: 2025-04-22
+* Last updated: 2025-04-29
 * Discussion at:
   - [ ] TODO(sergiitk): insert google group thread
 
