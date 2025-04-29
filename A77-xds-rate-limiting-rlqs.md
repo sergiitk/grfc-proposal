@@ -41,8 +41,8 @@ which are covered in the proposal:
 3. RPCs will be matched into buckets using [Unified Matcher API].
 4. One of the matching mechanisms will be [CEL](https://cel.dev/) (Common
    Expression Language).
-5. RLQS filter state will persist across LDS/RDS updates using cache retention
-   mechanism similar to the one implemented for [gRFC A83].
+5. RLQS Filter State will persist across LDS/RDS updates using cache retention
+   mechanism described in [gRFC A83].
 
 ### Related Proposals
 
@@ -90,7 +90,7 @@ graph TD
         request{{RPC}}
     end
     subgraph rlqs_server_box [RLQS Server]
-        rlqs[(RLQS)]
+        rlqs[(RLQS<br />Service)]
     end
     subgraph grpc_server_box [gRPC Server]
         rlqs_filter(RLQS Filter: Channel Level)
