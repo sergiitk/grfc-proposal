@@ -58,6 +58,8 @@ which are covered in the proposal:
 [gRFC A39]: A39-xds-http-filters.md
 [gRFC A83]: A83-xds-gcp-authn-filter.md
 
+[RLQS xDS HTTP Filter: Channel Level]: #rlqs-xds-http-filter-channel-level
+
 [`GrpcService`]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto
 [`GrpcService.GoogleGrpc`]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc
 [Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
@@ -119,16 +121,13 @@ graph TD
 
 #### RLQS xDS HTTP Filter: Channel Level
 
-For each route, the filter creates an internal RLQS Filter Config object by
-combining the LDS filter config with any RDS config overrides. Two routes with
-the same combined filter configuration should result in identical RLQS Filter
-Config objects.
-
-For each unique RLQS Filter Config, the filter creates a corresponding RLQS
-Filter State object. To track the uniqueness of RLQS Filter Configs, the filter
-will maintain a map from RLQS Filter Configs to their respective RLQS Filter
-State instances. This map will be stored in the persistent filter state
-mechanism described in [gRFC A83].
+In order to retain filter state across LDS/RDS updates, the actual logic for the
+RLQS filter will be moved into a separate object called RLQS Filter State, which
+will be stored in the persistent filter state mechanism described in [gRFC A83].
+The key in the persistent filter state will be the RLQS xDS HTTP filter config,
+which ensures that two RLQS filter instances with the same config will share
+filter state but two RLQS filter instances with different configs will each have
+their own filter state.
 
 Channel-level RLQS xDS HTTP Filter object will include the following data
 members:
@@ -137,8 +136,7 @@ members:
     retained across LDS/RDS updates. A 1:1 mapping between unique RLQS Filter
     Config instances and corresponding unique RLQS Filter State instances.
 
-> [!NOTE]
-> Not a reference implementation. Only for flow illustration purposes.
+Pseudo-code:
 
 ```java
 final class RlqsFilter implements Filter {
@@ -163,7 +161,7 @@ final class RlqsFilter implements Filter {
       }
     }
 
-    // Get or Create RLQS Filter Config instance from A83 cache.
+    // Get or Create RLQS Filter Config from persistent filter state.
     RlqsFilterState rlqsFilterState = filterStateCache.computeIfAbsent(
       rlqsConfigBuilder.build(),
       (cfg) -> new RlqsFilterState(cfg, getRlqsServerInfo(cfg.rlqsService()))
@@ -194,8 +192,7 @@ Call-level RLQS xDS HTTP Filter object will include the following data members:
 -   RLQS Filter State instance corresponding route's RLQS Filter Config:
     implementation-dependent.
 
-> [!NOTE]
-> Not a reference implementation. Only for flow illustration purposes.
+Pseudo-code:
 
 ```java
 private static class RlqsServerInterceptor implements ServerInterceptor {
@@ -230,13 +227,11 @@ private static class RlqsServerInterceptor implements ServerInterceptor {
 
 #### RLQS Filter State
 
-In order to retain filter state across LDS/RDS updates, the actual logic for the
-RLQS filter will be moved into a separate object called RLQS Filter State, which
-will be stored in the persistent filter state mechanism described in [gRFC A83].
-The key in the persistent filter state will be the RLQS xDS HTTP filter config,
-which ensures that two RLQS filter instances with the same config will share
-filter state but two RLQS filter instances with different configs will each have
-their own filter state.
+RLQS Filter State manages the runtime state and logic for a unique RLQS Filter
+Config. It's responsible for matching data plane RPCs to buckets, managing the
+lifecycle of those buckets, and communicating with the RLQS server to report
+usage and receive quota assignments. Filter state instances are persisted across
+LDS/RDS updates, see [RLQS xDS HTTP Filter: Channel Level].
 
 RLQS Filter State object will include the following data members:
 
