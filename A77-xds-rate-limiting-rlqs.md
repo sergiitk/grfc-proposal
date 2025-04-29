@@ -233,9 +233,9 @@ their own filter state.
 RLQS Filter State object will include the following data members:
 
 -   Matcher Tree: From filter config, initialized at instantiation, constant.
-    Used to identify the bucket map entry for each data plane RPC.
--   Bucket Map: Accessed on each data plane RPC, when we get a response from the
-    RLQS server, and when report timers fire.
+    Used to identify the RLQS Bucket for each data plane RPC.
+-   RLQS Bucket Cache: Accessed on each data plane RPC, when we get a response
+    from the RLQS server, and when report timers fire.
 -   RLQS Client: Accessed when we get the first data plane RPC for a given
     bucket and when a report timer fires. Notifies RLQS Filter State of
     responses received from the RLQS server.
@@ -285,16 +285,56 @@ RLQS Client object will include the following data members:
     constant, accessed on responses from the RLQS server. A callback to notify
     the RLQS Filter State of updates to quota assignments.
 
-#### RLQS Bucket Map
+#### RLQS Bucket Cache
 
-- [ ] TODO(sergiitk): explain bucket map
+The RLQS Bucket Cache is responsible for storing and managing the lifecycle of
+RLQS Buckets. It provides a thread-safe way to access and update buckets,
+ensuring that only one instance of a RLQS bucket exists for a given `bucket_id`.
+The cache also allows to retrieve all buckets that need to be reported to the
+RLQS server at a given reporting interval. Depending on implementation, this
+component may be inlined into RLQS Filter State.
 
-##### Multithreading
+RLQS Bucket Cache object will include the following data members:
 
-There are several mutex-synchronized operations executed in
-latency-sensitive `onCallHandler`:
+-   Buckets Map: Initialized empty at instantiation, thread-safe. Entries
+    retrieved on each data plane RPC and when report timers fire. Entries
+    inserted when we get the first data plane RPC for a given bucket. Entries
+    are deleted either by RLQS server via `abandon_action`, or on report timers
+    if a bucket's active assignment expires.
+-   Buckets Per Interval Map: Initialized empty at instantiation, thread-safe.
+    Entries retrieved when a report timer fires. Entries inserted and deleted at
+    the same time as Buckets Map. Used to efficiently access the set of buckets
+    for a given report interval. A map from reporting interval to a set of
+    `RlqsBucket` instances.
 
-1. Inserting/reading a bucket from the bucket cache using `bucket_id`. Note
+##### RLQS Bucket
+
+The RLQS Bucket tracks the current rate limiting assignment and the quota
+usage for a specific bucket, identified by a `bucket_id`. It uses this data to
+determine whether to allow or deny a request. The bucket also provides a
+thread-safe mechanism to snapshot and reset its quota usage when building usage
+reports.
+
+RLQS Bucket object will include the following data members:
+
+-   `bucket_id`: From filter config and RPC metadata, constant, initialized at
+    bucket creation. A unique identifier for the bucket.
+-   "No Assignment" and "Expired Assignment" strategies: Initialized at first
+    RPC for the bucket from filter config, constant. Fallback rate limiting
+    strategies.
+-   Active Assignment: Initialized at first RPC for the bucket from filter
+    config, updated on RLQS server responses. The current rate limiting strategy
+    to apply to requests, and associated expiration timestamps.
+-   Request Counters: Initialized at 0, updated on data plane RPCs, reset on
+    report timers and RLQS server responses. Tracks the number allowed/denied
+    requests for the bucket.
+
+##### RLQS Bucket Cache Multithreading
+
+There are several mutex-synchronized operations on RLQS buckets that are
+executed during latency-sensitive data plane RPC processing:
+
+1. Inserting/reading a bucket from the RLQS Bucket Cache using `bucket_id`. Note
    that `bucket_id` is represented as a `Map<String, String>`, which may
    introduce complexities in efficient cache sharding for certain programming
    languages.
@@ -325,10 +365,10 @@ When receiving an LDS/RDS update, the RLQS filter will:
 When processing each data plane RPC, the RLQS filter will ask the RLQS filter
 state for a rate-limit decision for the RPC. The RLQS filter state uses the
 matcher tree from the filter config to determine which bucket to use for the
-RPC. It then looks for that bucket in the bucket map, creating it if it doesn't
-already exist. If a new bucket was created, it sends a request on the RLQS
-stream informing the server of the bucket's creation. Finally, it returns the
-resulting rate-limit decision based on the bucket contents.
+RPC. It then looks for that bucket in the bucket cache map, creating it if it
+doesn't already exist. If a new bucket was created, it sends a request on the
+RLQS stream informing the server of the bucket's creation. Finally, it returns
+the resulting rate-limit decision based on the bucket contents.
 
 - [ ] TODO(sergiitk): redo the next block?`
 RLQS Filter State evaluates the metadata against the matcher tree to match the
