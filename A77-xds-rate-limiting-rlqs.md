@@ -265,26 +265,6 @@ private void onNewBucket(RlqsBucket newBucket) {
 }
 ```
 
-#### RLQS Client
-
-The RLQS Client is responsible for communication with the Rate Limit Quota
-Service (RLQS) server. It manages a gRPC stream to the RLQS server, used for
-sending periodic bucket usage reports and receiving new rate limit quota
-assignments. The client handles reconnects and manages the lifecycle of the
-stream.
-
-RLQS Client object will include the following data members:
-
--   gRPC Channel: From filter config, initialized at instantiation, constant. A
-    channel to the RLQS server.
--   gRPC Stream: Initialized at instantiation, replaced any time the stream
-    fails (with backoff). Accessed when we get the first data plane RPC for a
-    given bucket and when a report timer fires. A bidirectional gRPC stream to
-    the RLQS server.
--   Buckets Update Callback: Provided by RLQS Filter state at instantiation,
-    constant, accessed on responses from the RLQS server. A callback to notify
-    the RLQS Filter State of updates to quota assignments.
-
 #### RLQS Bucket Cache
 
 The RLQS Bucket Cache is responsible for storing and managing the lifecycle of
@@ -342,6 +322,26 @@ executed during latency-sensitive data plane RPC processing:
 
 Each gRPC implementation needs to consider what synchronization primitives are
 available in their language to minimize the thread lock time.
+
+#### RLQS Client
+
+The RLQS Client is responsible for communication with the Rate Limit Quota
+Service (RLQS) server. It manages a gRPC stream to the RLQS server, used for
+sending periodic bucket usage reports and receiving new rate limit quota
+assignments. The client handles reconnects and manages the lifecycle of the
+stream.
+
+RLQS Client object will include the following data members:
+
+-   gRPC Channel: From filter config, initialized at instantiation, constant. A
+    channel to the RLQS server.
+-   gRPC Stream: Initialized at instantiation, replaced any time the stream
+    fails (with backoff). Accessed when we get the first data plane RPC for a
+    given bucket and when a report timer fires. A bidirectional gRPC stream to
+    the RLQS server.
+-   Buckets Update Callback: Provided by RLQS Filter state at instantiation,
+    constant, accessed on responses from the RLQS server. A callback to notify
+    the RLQS Filter State of updates to quota assignments.
 
 ### Handling Events
 
