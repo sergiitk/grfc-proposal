@@ -173,6 +173,14 @@ final class RlqsFilter implements Filter {
 }
 ```
 
+##### Future considerations
+
+This proposal uses the entire RLQS Filter Config to identify the corresponding
+unique Filter State. As a result, a Filter State will be recreated even if only
+inconsequential fields, such as the deny response status, are changed. If this
+becomes a problem, additional logic should be introduced to exclude such fields
+when comparing Filter Config objects.
+
 #### RLQS xDS HTTP Filter: Call Level
 
 When processing a data plane RPC for a given route, the filter passes the RPC
@@ -239,29 +247,53 @@ RLQS Filter State object will include the following data members:
 -   RLQS Client: Accessed when we get the first data plane RPC for a given
     bucket and when a report timer fires. Notifies RLQS Filter State of
     responses received from the RLQS server.
--   Report Timer: Created/modified when we get an RLQS response for a given
-    bucket, or when a previous timer fires.
+-   Report Timers Map: Initialized at instantiation. Used to track discovered
+    reporting intervals and their execution handlers.
+    -   Entries inserted we get the first data plane RPC for a given bucket and
+        there's no key for bucket reporting interval.
+    -   Entries deleted when there's more buckets with given reporting interval
+        in RLQS Bucket Cache.
 
-> [!NOTE]
-> Not a reference implementation. Only for flow illustration purposes.
-
-- [ ] TODO(sergiitk): update
+Pseudo-code for RLQS Filter State RPC rate limiting:
 
 ```java
-public RlqsRateLimitResult rateLimit(HttpMatchInput input) {
-  // Perform request matching. The result is RlqsBucketSettings.
-  RlqsBucketSettings bucketSettings = bucketMatchers.match(input);
-  // BucketId may be dynamic (f.e. based on headers).
-  RlqsBucketId bucketId = bucketSettings.bucketIdForRequest(input);
+final class RlqsFilterState {
+  private final RlqsClient rlqsClient;
+  private final Matcher<HttpMatchInput, RlqsBucketSettings> bucketMatchers;
+  private final RlqsBucketCache bucketCache;
+  private final ScheduledExecutorService scheduler;
+  private final ConcurrentMap<Long, ScheduledFuture<?>>
+      timers = new ConcurrentHashMap<>();
+  // ...
 
-  RlqsBucket bucket = bucketCache.getOrCreate(bucketId, bucketSettings, this::onNewBucket);
-  return bucket.rateLimit();
-}
+  public RlqsRateLimitResult rateLimit(HttpMatchInput input) {
+    // Perform request matching. The result is RlqsBucketSettings.
+    RlqsBucketSettings bucketSettings = bucketMatchers.match(input);
+    // BucketId may be dynamic (f.e. based on headers).
+    RlqsBucketId bucketId = bucketSettings.bucketIdForRequest(input);
+    // Get or create RLQS Bucket.
+    RlqsBucket bucket = bucketCache.getOrCreate(
+        bucketId, bucketSettings, this::onNewBucket);
+    return bucket.rateLimit();
+  }
 
-private void onNewBucket(RlqsBucket newBucket) {
-  // The report for the first RPC is sent immediately.
-  scheduleImmediateReport(newBucket);
-  registerReportTimer(newBucket.getReportingInterval());
+  private void onNewBucket(RlqsBucket newBucket) {
+    // The report for the first RPC is sent immediately.
+    scheduleImmediateReport(newBucket);
+    registerReportTimer(newBucket.getReportingInterval());
+  }
+
+  private void scheduleImmediateReport(RlqsBucket newBucket) {
+    // Do not block data plane RPC on sending the report.
+    scheduler.schedule(
+       () -> rlqsClient.sendUsageReports(newBucket.snapshotAndResetUsage()),
+       1, TimeUnit.MICROSECONDS)
+  }
+
+  private void registerReportTimer(final long intervalMillis) {
+    // TODO: bound / roundup the report interval for better grouping.
+    timers.computeIfAbsent(intervalMillis, k -> newTimer(intervalMillis));
+  }
 }
 ```
 
@@ -278,9 +310,10 @@ RLQS Bucket Cache object will include the following data members:
 
 -   Buckets Map: Initialized empty at instantiation, thread-safe. Entries
     retrieved on each data plane RPC and when report timers fire. Entries
-    inserted when we get the first data plane RPC for a given bucket. Entries
-    are deleted either by RLQS server via `abandon_action`, or on report timers
-    if a bucket's active assignment expires.
+    inserted when we get the first data plane RPC for a given bucket, or when
+    instructed by the RLQS Server. Entries are deleted either by RLQS server via
+    `abandon_action`, or on report timers if a bucket's active assignment
+    expires.
 -   Buckets Per Interval Map: Initialized empty at instantiation, thread-safe.
     Entries retrieved when a report timer fires. Entries inserted and deleted at
     the same time as Buckets Map. Used to efficiently access the set of buckets
@@ -347,56 +380,57 @@ RLQS Client object will include the following data members:
 
 #### On LDS/RDS Updates
 
-- [ ] TODO(sergiitk): verify mlgen
+When receiving an LDS/RDS update, the RLQS filter will perform the following 
+steps for each route:
 
-When receiving an LDS/RDS update, the RLQS filter will:
+1.  Parse the new filter config and per-route overrides into an internal RLQS
+    Filter Config object.
+2.  Retrieve the corresponding RLQS Filter State from the RLQS Filter State
+    Cache, creating it if it doesn't exist.
+3.  Generate new data plane RPC handler using the retrieved RLQS Filter State.
 
-1.  Parse the new filter config.
-2.  Retrieve the corresponding RLQS Filter State from the RLQS Cache, creating
-    it if it doesn't exist.
-3.  Generate new `onClientCall` handlers (interceptors) using the retrieved
-    RLQS Filter State.
-4.  Update the filter chain with the new `onClientCall` handlers.
-5.  Release the RLQS Filter State from the cache if it's no longer referenced
-    by any `onClientCall` handlers.
+Once all routes are parsed, the RLQS filter will release from the RLQS Filter
+State Cache all RLQS Filter State instances no longer referenced by any data
+plane RPC handlers.
 
 #### On Data Plane RPC
 
-When processing each data plane RPC, the RLQS filter will ask the RLQS filter
-state for a rate-limit decision for the RPC. The RLQS filter state uses the
+When processing each data plane RPC, the RLQS Filter will ask the RLQS Filter
+State for a rate-limit decision for the RPC. The RLQS Filter State uses the
 matcher tree from the filter config to determine which bucket to use for the
-RPC. It then looks for that bucket in the bucket cache map, creating it if it
-doesn't already exist. If a new bucket was created, it sends a request on the
-RLQS stream informing the server of the bucket's creation. Finally, it returns
-the resulting rate-limit decision based on the bucket contents.
+RPC. It then looks for that RLQS Bucket in the RLQS Bucket Cache map, creating
+it if it doesn't already exist.
 
-- [ ] TODO(sergiitk): redo the next block?`
-RLQS Filter State evaluates the metadata against the matcher tree to match the
-request into a bucket. The Bucket holds the Rate Limit Quota assigned by the
-RLQS server (f.e. 100 requests per minute), and aggregates the number of
-requests it allowed/denied. This information is used to make the rate limiting
-decision.
+If a new bucket has been created, the RPC is rate-limited according to bucket's
+default configuration. Then the filter schedules a report on the RLQS stream
+informing the server of the bucket's creation, and registers the report timers
+for bucket's reporting interval.
+
+If the bucket exists, the RPC is rate-limited according to its active quota
+assignment and usage counters. The bucket increments corresponding bucket usage
+counter.
 
 #### On RLQS Server Response
 
-- [ ] TODO(sergiitk): verify mlgen
+When receiving an RLQS Server Response, the RLQS Client passes parsed response
+to the RLQS Filter State. The RLQS Filter State iterates through the bucket
+assignments in the response, and updates the corresponding buckets in the RLQS
+Bucket Cache. Buckets marked to be abandoned are purged from the cache.
 
-When receiving a response from the RLQS server, the RLQS Client will:
-
-1.  Parse the response.
-2.  Match the response to the corresponding buckets.
-3.  Update the rate limit quota assignments in the corresponding buckets.
-4.  Notify the RLQS Filter State of the new assignments.
+If a bucket has a new rate limit assignment, the bucket's active assignment is
+updated and bucket usage counters are reset. Otherwise, only the assignment
+expiration is updated.
 
 #### On Report Timers
 
-- [ ] TODO(sergiitk): verify - moved from another place
+When a report timer fires, the RLQS Filter State retrieves all buckets with the
+corresponding reporting interval from the RLQS Bucket Cache. For each bucket,
+the filter snapshots the current usage counters, and resets them. The filter
+then sends the snapshot to RLQS server using RLQS Client.
 
-The aggregated number of requests is reported to the RLQS server at configured
-intervals. The report action is triggered by the Report Timers. RLQS Client
-manages a gRPC stream to the RLQS server. It's used by the filter state to send
-periodic bucket usage reports, and to receive new rate limit quota assignments
-to the buckets.
+If a bucket's active assignment has expired, the bucket is removed from the
+cache. If there are no more buckets with the given reporting interval, the
+corresponding timer is removed.
 
 ### Integrations
 
@@ -556,101 +590,6 @@ provides the different variable resolving approaches based on the language:
 * CPP: [`BaseActivation::FindValue()`](https://github.com/google/cel-cpp/blob/9310c4910e598362695930f0e11b7f278f714755/eval/public/base_activation.h#L35)
 * Go: [`Activation.ResolveName(string)`](https://github.com/google/cel-go/blob/3f12ecad39e2eb662bcd82b6391cfd0cb4cb1c5e/interpreter/activation.go#L30)
 * Java: [`CelVariableResolver`](https://javadoc.io/doc/dev.cel/runtime/0.6.0/dev/cel/runtime/CelVariableResolver.html)
-
-#### Persistent Filter Cache
-
-- [ ] TODO(sergiitk): move to A83
-- [ ] TODO(sergiitk): clearly clarify what is xDS HTTP filter: java vs core
-
-RLQS Filter State holds the bucket usage data, report timers and the
-bidirectional stream to the RLQS server. To prevent the loss of state across
-LDS/RDS updates, RLQS filter will require a cache retention mechanism similar to
-the one implemented for [gRFC A83].
-
-The scope of each RLQS Filter Cache instance will be per server instance (same
-scope as the filter chain) and per filter name.
-
-RLQS implementations will provide a mechanism for new instances of the filter to
-retain the cache from previous instances. There may be multiple instances of the
-RLQS Filter State, each one mapped to a unique filter config generated from LDS
-config, and RDS overrides. Consider the following example that demonstrates the
-lifecycle of RLQS Filter Cache.
-
-```mermaid
----
-config:
-  sequence:
-    showSequenceNumbers: true
-    height: 46
-    diagramMarginX: 40
-    diagramMarginY: 40
----
-sequenceDiagram
-
-%% gRFC: RLQS Filter Cache Lifecycle v1.1
-    participant xds as Control Plane
-    participant filter as RLQS HTTP Filter
-    participant cache as RLQS Cache
-    participant e1 as RlqsFilterState(c1)
-    participant e2 as RlqsFilterState(c2)
-
-# Notes
-    Note right of xds: r1-4: routes <br />c1-2: unique filter configs
-%% LDS 1
-    xds ->> filter: LDS1<br />RLQS{r1=c1, r2=c2, r3=c2}
-    filter ->> cache: r1: getOrCreate(c1)
-    cache ->>+ e1: new RlqsFilterState(c1)
-    filter ->> cache: r2: getOrCreate(c2)
-    cache ->>+ e2: new RlqsFilterState(c2)
-    filter ->> cache: r3: getOrCreate(c2)
-    Note over filter: r1: RlqsFilterState(c1)<br/>r2: RlqsFilterState(c2)<br/>r3: RlqsFilterState(c2)
-%% RDS 1
-    xds ->> filter: RDS1<br />RLQS{r1=c2}
-    filter ->> cache: r1: getOrCreate(c2)
-    filter ->> cache: shutdownFilterState(c1)
-    cache -x e1: RlqsFilterState(c1).shutdown()
-    deactivate e1
-    Note over filter: r1: RlqsFilterState(c2)<br/>r2: RlqsFilterState(c2)<br/>r3: RlqsFilterState(c2)
-%% LDS 2
-    xds ->> filter: LDS2<br />RLQS{r3=c2, r4=c2}
-    filter ->> cache: r4: getOrCreate(c2)
-    Note over filter: r3: RlqsFilterState(c2)<br/>r4: RlqsFilterState(c2)
-%% End
-    deactivate e2
-```
-
-**LDS 1**
-
-In this example, the RLQS filter is configured for three routes: `r1`, `r2`,
-and `r3`. Each unique config generates a unique RLQS Filter
-State: `RlqsFilterState(c1)` for the config `c1`, and `RlqsFilterState(c2)` for
-the config `c2`. After processing the first LDS update, we've generated
-`onCallHandlers` for three routes:
-
-1. `r1`, referencing `RlqsFilterState(c1)`.
-2. `r2`, referencing `RlqsFilterState(c2)`.
-3. `r3`, also referencing `RlqsFilterState(c2)`.
-
-**RDS 1**
-
-RDS 1 updates RLQS config for the route `r1` so it's identical to config `c2`.
-We retrieve `RlqsFilterState(c2)` from the RLQS Cache and generate new
-`onCallHandlers` for route `r2`. `RlqsFilterState(c1)` is no longer referenced
-by any `onCallHandler`, and can be destroyed with all associated resources.
-
-**LDS 2**
-
-LDS 2 update removes `r1` and `r2`, and adds new route r4 with the config
-identical to `c2`. While `onCallHandlers` for routes `r1` and `r2` are
-destroyed, `RlqsFilterState(c2)` is still used by two `onCallHandlers`, so it's
-preserved in RLQS Cache.
-
-##### Future considerations
-
-With this proposal, the filter state is lost if change is made to the filter
-config, including updates to inconsequential fields such as deny response
-status. If this becomes a problem, additional logic can be introduced to handle
-updates to such fields while preserving the filter state.
 
 ### Temporary environment variable protection
 
