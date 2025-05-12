@@ -59,18 +59,84 @@ which are covered in the proposal:
 [gRFC A83]: A83-xds-gcp-authn-filter.md
 
 [RLQS xDS HTTP Filter: Channel Level]: #rlqs-xds-http-filter-channel-level
+[GrpcService Security Considerations]: #grpcservice-security-considerations
 
 [`GrpcService`]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto
 [`GrpcService.GoogleGrpc`]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/grpc_service.proto#envoy-v3-api-msg-config-core-v3-grpcservice-googlegrpc
 [Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [Envoy CEL environment]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
 
+[google.protobuf.Duration]: https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration
+
 [rlqs_proto]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/service/rate_limit_quota/v3/rlqs.proto.html
 [rlqs_filter_proto]: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto
 
+[RateLimitQuotaFilterConfig]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L37
+[proto_rlqs_server]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L39
+[proto_domain]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L44
+[proto_bucket_matchers]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L115
+[proto_filter_enabled]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L121
+[proto_filter_enforced]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L132
+[proto_request_headers_to_add_when_not_enforced]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L137
+
+[proto_grpc_svc_google_grpc]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/grpc_service.proto#L303
+[proto_grpc_svc_target_uri]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/grpc_service.proto#L254
+[proto_grpc_svc_timeout]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/grpc_service.proto#L308
+
+[proto_frac_default_value]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/base.proto#L648
+[proto_frac_numerator]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/type/v3/percent.proto#L52
+[proto_frac_denominator]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/type/v3/percent.proto#L56
+
 ## Proposal
 
-### RLQS Components Overview
+### Filter Configuration
+
+We will support the following fields in the [RateLimitQuotaFilterConfig][]
+proto:
+
+-   [rlqs_server][proto_rlqs_server]: This field must be present. Inside of it:
+    -   [google_grpc][proto_grpc_svc_google_grpc]: This field must be present.
+        Inside of it:
+        -   [target_uri][proto_grpc_svc_target_uri]: This field must be
+            non-empty and must be a valid target URI. The value specified here
+            must be present in the `allowed_grpc_services` map in the bootstrap
+            config, which will also determine the credentials to use, as
+            described in [GrpcService Security Considerations][].
+        -   All other fields are ignored.
+    -   [timeout][proto_grpc_svc_timeout]: Specifies the deadline for the RPCs
+        sent to the RLQS server. If unset, there is no deadline. The value must
+        obey the restrictions specified in the [google.protobuf.Duration][],
+        documentation and it must have a positive value.
+    -   All other fields are ignored.
+-   [domain][proto_domain]: This field must be present and non-empty.
+-   [bucket_matchers][proto_bucket_matchers]: This field must be present. Inside
+    of it, there must be a valid matchers structure. `TODO(sergiitk): add more
+    info`.
+-   [filter_enabled][proto_filter_enabled]: Optional, defaults to 100%. Inside
+    of it:
+    -   [default_value][proto_frac_default_value]: Required if `filter_enabled`
+        is set. Specifies the fraction of requests for which the rate limiting
+        is enabled. Inside of it:
+        -   [numerator][proto_frac_numerator]: Optional, defaults to 0.
+        -   [denominator][proto_frac_denominator]: Optional, defaults to
+            HUNDRED.
+    -   All other fields are ignored.
+-   [filter_enforced][proto_filter_enforced]: Optional, defaults to 100%. Inside
+    of it:
+    -   [default_value][proto_frac_default_value]: Required if `filter_enforced`
+        is set. Specifies the fraction of requests for which the rate limiting
+        is enforced. Inside of it:
+        -   [numerator][proto_frac_numerator]: Optional, defaults to 0.
+        -   [denominator][proto_frac_denominator]: Optional, defaults to
+            HUNDRED.
+    -   All other fields are ignored.
+-   [request_headers_to_add_when_not_enforced][proto_request_headers_to_add_when_not_enforced]:
+    Optional. Inside of it, a list of the following items:
+    -   HeaderValueOption `TODO(sergiitk): finish`.
+
+### RLQS Components
+
+#### RLQS Components Overview
 
 The diagram below shows the conceptual components of the RLQS Filter. Note that
 the actual implementation may vary depending on the language.
@@ -439,7 +505,7 @@ already supported by Envoy). `GrpcService` supports two modes:
 
 For obvious reasons, we'll only support the `GoogleGrpc` mode.
 
-##### Security Considerations
+##### GrpcService Security Considerations
 
 In [`GrpcService.GoogleGrpc`], the xDS Control Plane provides the target URI,
 `channel_credentials`, and `call_credentials`. If the xDS Control Plane is
