@@ -69,7 +69,7 @@ which are covered in the proposal:
 [Envoy CEL environment]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
 
 [TokenBucket]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/type/v3/token_bucket.proto
-[GrpcService]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/grpc_service.proto
+[GrpcService]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/grpc_service.proto#L29
 [GrpcService.GoogleGrpc]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/grpc_service.proto#L73
 
 [rlqs_service_proto]: https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/service/rate_limit_quota/v3/rlqs.proto
@@ -96,7 +96,7 @@ proto:
     This field must be present and non-empty.
 -   [bucket_matchers](https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L115):
     This field must be present. Inside of it, there must be a valid matchers
-    structure. Details described in [Config: Bucket Matchers][].
+    structure as described in [Config: Bucket Matchers][].
 -   [filter_enabled](https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L121):
     Specifies the fraction of requests for which the rate limiting is enabled.
     When not present, the filter is enabled for all requests (100%). Otherwise,
@@ -138,7 +138,9 @@ The following fields will be ignored by gRPC:
 
 #### Config: RuntimeFractionalPercent
 
-We will support the following fields in the [RuntimeFractionalPercent][] proto:
+We will support the following fields in the
+[RuntimeFractionalPercent](https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/base.proto#L643)
+proto:
 
 -   [default_value](https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/base.proto#L648):
     This field must be present. Specifies the fraction of requests for which
@@ -158,7 +160,7 @@ The following fields will be ignored by gRPC:
 
 #### Config: HeaderValueOption
 
-We will support the following fields in the [HeaderValueOption][] proto:
+We will support the following fields in the [HeaderValueOption](https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/base.proto#L429) proto:
 
 -   [header](https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/base.proto#L458):
     Must be present.
@@ -196,7 +198,6 @@ TODO(sergiitk): add details
 The diagram below shows the conceptual components of the RLQS Filter. Note that
 the actual implementation may vary depending on the language.
 
-<!-- disableFinding(SNIPPET_INVALID_LANGUAGE) -->
 ```mermaid
 ---
 config:
