@@ -143,15 +143,18 @@ We will support the following fields in the
 proto:
 
 -   [default_value](https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/config/core/v3/base.proto#L648):
-    This field must be present. Specifies the fraction of requests for which
-    given setting will apply. Inside of it:
+    This field must be present. If the denominator specified is less than the
+    numerator, the final fractional percentage is capped at 1 (100%). The
+    fraction specified with:
     -   [numerator](https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/type/v3/percent.proto#L52):
-        Optional, defaults to 0.
+        Non-negative integer, 0 by default.
     -   [denominator](https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/type/v3/percent.proto#L56):
-        Must be one of the [DenominatorType][] values:
-        - `HUNDRED` (default)
-        - `TEN_THOUSAND`
-        - `MILLION`
+        Must be one of the
+        [DenominatorType](https://github.com/envoyproxy/envoy/blob/82bc63199ff429490260e52794bb3095f17bcdae/api/envoy/type/v3/percent.proto#L34)
+        values:
+        -   `HUNDRED` (default)
+        -   `TEN_THOUSAND`
+        -   `MILLION`
 -   All other fields are ignored.
 
 The following fields will be ignored by gRPC:
