@@ -58,6 +58,7 @@ which are covered in the proposal:
 [A39]: A39-xds-http-filters.md
 [A83]: A83-xds-gcp-authn-filter.md
 [A102]: https://github.com/grpc/proposal/pull/510
+[G1]: G1-true-binary-metadata.md
 
 [RateLimitQuotaFilterConfig]: #ratelimitquotafilterconfig
 [RateLimitQuotaOverride]: #ratelimitquotaoverride
@@ -153,11 +154,16 @@ We will support the following fields in the [HeaderValueOption](https://github.c
 -   [header](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L458):
     Must be present.
     -   [key](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L404):
-        Must contain a valid header field name.
+        Value length must be in the range `[1, 16384)`. Must be a valid HTTP/2
+        header name.
     -   [value](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L415):
-        May be empty. Otherwise, must contain a valid header value.
+        Specifies the header value. Must be shorter than 16384 bytes. Must be a
+        valid HTTP/2 header value. Not used if `key` ends in `-bin` and
+        `raw_value` is set.
     -   [raw_value](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L422):
-        `TODO(sergiitk): confirm`.
+        Used only if `key` ends in `-bin`. Must be shorter than 16384 bytes.
+        Will be base64-encoded on the wire, unless the pure binary metadata
+        extension from [gRFC G1: True Binary Metadata][G1] is used.
 -   [append_action](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L476):
     Must be of the
     [HeaderAppendAction](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L434)
