@@ -76,6 +76,7 @@ which are covered in the proposal:
 
 [TokenBucket]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto
 [GrpcService.GoogleGrpc]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/grpc_service.proto#L68
+[`google.protobuf.Duration`]: https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration
 
 [rlqs_proto]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto
 
@@ -544,7 +545,7 @@ expiration is updated.
 
 When a report timer fires, the RLQS Filter State retrieves all buckets with the
 corresponding reporting interval from the RLQS Bucket Map. For each bucket, the
-filter snapshots the current usage counters, and resets them as detailed in
+filter snapshots the current usage counters, and resets them as described in
 [On Sending Usage Reports]. The filter then sends the snapshot to RLQS server
 using RLQS Client.
 
@@ -593,25 +594,32 @@ The `RateLimitQuotaUsageReports` message is sent to the RLQS server via the
 `StreamRateLimitQuotas` RPC defined in [rlqs.proto][rlqs_proto]. Each message
 contains usage reports for one or more buckets.
 
-The following fields will be populated in the `RateLimitQuotaUsageReports`:
+The following fields will be populated in the
+[`RateLimitQuotaUsageReports`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L66):
 
--   `domain`: Populated from the `domain` field in the
-    [RateLimitQuotaFilterConfig]. This field is only sent in the first
-    `RateLimitQuotaUsageReports` message on a new gRPC stream to the RLQS
-    server. Subsequent messages on the same stream will omit this field.
--   `bucket_quota_usages`: A list of `BucketQuotaUsage` messages, each
-    representing the usage report for a specific bucket. Each `BucketQuotaUsage`
-    message will have the following fields populated:
-    -   `bucket_id`: Populated from the `bucket_id` of the `RlqsBucket`. This
-        identifies the bucket for which the usage is being reported.
-    -   `time_elapsed`: A `google.protobuf.Duration` representing the time since
-        the last usage report was sent for this specific `bucket_id`.
-    -   `num_requests_allowed`: The number of requests allowed for this bucket
-        since the last report. This comes from the `Request Counters` in the
-        `RlqsBucket`.
-    -   `num_requests_denied`: The number of requests denied for this bucket
-        since the last report. This also comes from the `Request Counters` in
-        the `RlqsBucket`.
+-   [`domain`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L96):
+    Populated from the `domain` field in the [RateLimitQuotaFilterConfig]. This
+    field is only sent in the first `RateLimitQuotaUsageReports` message on a
+    new gRPC stream to the RLQS server. Subsequent messages on the same stream
+    will omit this field.
+-   [`bucket_quota_usages`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L100):
+    A list of
+    [`BucketQuotaUsage`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L72)
+    messages, each representing the usage report for a specific bucket. Each
+    `BucketQuotaUsage` message will have the following fields populated:
+    -   [`bucket_id`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L74):
+        Populated from the `bucket_id` of the `RlqsBucket`. This identifies the
+        bucket for which the usage is being reported.
+    -   [`time_elapsed`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L77):
+        A [`google.protobuf.Duration`] representing the time difference between
+        the current time and the last usage report was sent for this specific
+        `bucket_id`.
+    -   [`num_requests_allowed`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L83):
+        The number of requests allowed for this bucket since the last report.
+        This comes from the `Request Counters` in the `RlqsBucket`.
+    -   [`num_requests_denied`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L86):
+        The number of requests denied for this bucket since the last report.
+        This also comes from the `Request Counters` in the `RlqsBucket`.
 
 Usage reports are sent in following scenarios:
 
