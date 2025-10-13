@@ -66,6 +66,10 @@ which are covered in the proposal:
 [Config: HeaderValueOption]: #config-headervalueoption
 [Config: Bucket Matchers]: #config-bucket-matchers
 [RLQS xDS HTTP Filter: Channel Level]: #rlqs-xds-http-filter-channel-level
+[RLQS Buckets and Multithreading]: #rlqs-buckets-and-multithreading
+[On Data Plane RPC]: #on-data-plane-rpc
+[On Report Timers]: #on-report-timers
+[On Sending Usage Reports]: #on-sending-usage-reports
 
 [Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [Envoy CEL environment]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
@@ -517,8 +521,9 @@ it doesn't already exist.
 
 If a new bucket has been created, the RPC is rate-limited according to bucket's
 default configuration. Then the filter schedules a report on the RLQS stream
-informing the server of the bucket's creation, and registers the report timers
-for bucket's reporting interval.
+informing the server of the bucket's creation as described in
+[On Sending Usage Reports], and registers the report timers for bucket's
+reporting interval.
 
 If the bucket exists, the RPC is rate-limited according to its active quota
 assignment and usage counters. The bucket increments corresponding bucket usage
@@ -539,12 +544,82 @@ expiration is updated.
 
 When a report timer fires, the RLQS Filter State retrieves all buckets with the
 corresponding reporting interval from the RLQS Bucket Map. For each bucket, the
-filter snapshots the current usage counters, and resets them. The filter then
-sends the snapshot to RLQS server using RLQS Client.
+filter snapshots the current usage counters, and resets them as detailed in
+[On Sending Usage Reports]. The filter then sends the snapshot to RLQS server
+using RLQS Client.
 
 If a bucket's active assignment has expired, the bucket is removed from the
 cache. If there are no more buckets with the given reporting interval, the
 corresponding timer is removed.
+
+#### On Sending Usage Reports
+
+When preparing bucket reports, the implementer should keep in mind that bucket
+usage counters may be updated concurrently by other threads, see
+[RLQS Buckets and Multithreading].
+
+One potential approach is preserving the current state of the bucket in a
+snapshot and immediately resetting the usage counters. The snapshot would
+contain time delta between the new and previous snapshot creation times, and the
+number of allowed/denied requests. The pseudo-code for this approach may look
+something like this:
+
+```java
+  private final AtomicLong numRequestsAllowed = new AtomicLong();
+  private final AtomicLong numRequestsDenied = new AtomicLong();
+  private final AtomicLong lastSnapshotTimeNanos = new AtomicLong(-1);
+
+  public RlqsBucketUsage snapshotAndResetUsage() {
+    long snapAllowed = numRequestsAllowed.get();
+    long snapDenied = numRequestsDenied.get();
+    long snapTime = nanoTimeNow();
+
+    // Reset stats.
+    numRequestsAllowed.addAndGet(-snapAllowed);
+    numRequestsDenied.addAndGet(-snapDenied);
+
+    long lastSnapTime = lastSnapshotTimeNanos.getAndSet(snapTime);
+    // First snapshot.
+    if (lastSnapTime < 0) {
+      lastSnapTime = snapTime;
+    }
+    // RlqsBucketUsage snapshots the current bucket state, and will later be transformed
+    // to the report sent to RLQS Server.
+    return RlqsBucketUsage.create(bucketId, snapAllowed, snapDenied, snapTime - lastSnapTime);
+  }
+```
+
+The `RateLimitQuotaUsageReports` message is sent to the RLQS server via the
+`StreamRateLimitQuotas` RPC defined in [rlqs.proto][rlqs_proto]. Each message
+contains usage reports for one or more buckets.
+
+The following fields will be populated in the `RateLimitQuotaUsageReports`:
+
+-   `domain`: Populated from the `domain` field in the
+    [RateLimitQuotaFilterConfig]. This field is only sent in the first
+    `RateLimitQuotaUsageReports` message on a new gRPC stream to the RLQS
+    server. Subsequent messages on the same stream will omit this field.
+-   `bucket_quota_usages`: A list of `BucketQuotaUsage` messages, each
+    representing the usage report for a specific bucket. Each `BucketQuotaUsage`
+    message will have the following fields populated:
+    -   `bucket_id`: Populated from the `bucket_id` of the `RlqsBucket`. This
+        identifies the bucket for which the usage is being reported.
+    -   `time_elapsed`: A `google.protobuf.Duration` representing the time since
+        the last usage report was sent for this specific `bucket_id`.
+    -   `num_requests_allowed`: The number of requests allowed for this bucket
+        since the last report. This comes from the `Request Counters` in the
+        `RlqsBucket`.
+    -   `num_requests_denied`: The number of requests denied for this bucket
+        since the last report. This also comes from the `Request Counters` in
+        the `RlqsBucket`.
+
+Usage reports are sent in following scenarios:
+
+1.  **On New Bucket Creation**: When the first RPC for a new `bucket_id` is
+    processed, an immediate report is scheduled to inform the RLQS server of the
+    new bucket subscription, see [On Data Plane RPC].
+2.  **On Report Timers**: When a report timer fires, see [On Report Timers].
+3.  **Replacing the assignment**: TODO(sergiitk)
 
 ### Integrations
 
