@@ -65,9 +65,12 @@ which are covered in the proposal:
 [Config: RuntimeFractionalPercent]: #config-runtimefractionalpercent
 [Config: HeaderValueOption]: #config-headervalueoption
 [Config: Bucket Matchers]: #config-bucket-matchers
+
 [RLQS xDS HTTP Filter: Channel Level]: #rlqs-xds-http-filter-channel-level
 [RLQS Buckets and Multithreading]: #rlqs-buckets-and-multithreading
+
 [On Data Plane RPC]: #on-data-plane-rpc
+[On RLQS Server Response]: #on-rlqs-server-response
 [On Report Timers]: #on-report-timers
 [On Sending Usage Reports]: #on-sending-usage-reports
 
@@ -535,11 +538,16 @@ counter.
 When receiving an RLQS Server Response, the RLQS Client passes parsed response
 to the RLQS Filter State. The RLQS Filter State iterates through the bucket
 assignments in the response, and updates the corresponding buckets in the RLQS
-Bucket Map. Buckets marked to be abandoned are purged from the cache.
+Bucket Map as described in
+[`RateLimitQuotaResponse.QuotaAssignmentAction`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L106-L139).
 
 If a bucket has a new rate limit assignment, the bucket's active assignment is
-updated and bucket usage counters are reset. Otherwise, only the assignment
-expiration is updated.
+updated and an immediate bucket usage report is sent, see
+[On Sending Usage Reports]. Otherwise, only the assignment expiration is
+updated.
+
+Buckets marked to be abandoned are purged from the cache as described in
+[`RateLimitQuotaResponse.AbandonAction`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L169-L199).
 
 #### On Report Timers
 
@@ -627,7 +635,8 @@ Usage reports are sent in following scenarios:
     processed, an immediate report is scheduled to inform the RLQS server of the
     new bucket subscription, see [On Data Plane RPC].
 2.  **On Report Timers**: When a report timer fires, see [On Report Timers].
-3.  **Replacing the assignment**: TODO(sergiitk)
+3.  **Replacing the assignment**: When bucket's active assignment is replaced,
+    as described in [On RLQS Server Response].
 
 ### Integrations
 
