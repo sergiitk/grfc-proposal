@@ -65,9 +65,11 @@ which are covered in the proposal:
 [Config: RuntimeFractionalPercent]: #config-runtimefractionalpercent
 [Config: HeaderValueOption]: #config-headervalueoption
 [Config: Bucket Matchers]: #config-bucket-matchers
+[Config: RateLimitQuotaBucketSettings]: #config-ratelimitquotabucketsettings
 
 [RLQS xDS HTTP Filter: Channel Level]: #rlqs-xds-http-filter-channel-level
 [RLQS Buckets and Multithreading]: #rlqs-buckets-and-multithreading
+[Unified Matcher API Support]: #unified-matcher-api-support
 
 [On Data Plane RPC]: #on-data-plane-rpc
 [On RLQS Server Response]: #on-rlqs-server-response
@@ -157,7 +159,9 @@ The following fields will be ignored by gRPC:
 
 #### Config: HeaderValueOption
 
-We will support the following fields in the [HeaderValueOption](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L429) proto:
+We will support the following fields in the
+[HeaderValueOption](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L429)
+proto:
 
 -   [header](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L458):
     Must be present.
@@ -189,9 +193,100 @@ The following fields will be ignored by gRPC:
 
 #### Config: Bucket Matchers
 
-TODO(sergiitk): add details
+The `bucket_matchers` field is a
+[`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L22)
+(see [Unified Matcher API Support]) used to assign requests based on their
+metadata to bucket configurations as defined in
+[Config: RateLimitQuotaBucketSettings].
 
----
+We will support the following fields:
+
+-   `matcher_type`: One of the following must be set:
+    -   `matcher_list`: A
+        [`MatcherList`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L43)
+        containing a list of matchers to evaluate in order. The first one that
+        matches wins.
+    -   `matcher_tree`: A
+        [`MatcherTree`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L99)
+        that maps input values to actions.
+-   `on_no_match`: If set, specifies an action to take when no matcher succeeds.
+    Must be a valid
+    [`OnMatch`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L24)
+    message. If not set, requests that do not match are allowed and not reported
+    to the RLQS server.
+
+##### Bucket Matchers: OnMatch
+
+A match action is defined by an `OnMatch` message, which contains either a
+nested `Matcher` or an `action`. For RLQS, the `action` must be a
+[`TypedExtensionConfig`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/core/v3/extension.proto#L14)
+containing a `RateLimitQuotaBucketSettings` message as described in
+[Config: RateLimitQuotaBucketSettings].
+
+The following fields will be ignored by gRPC:
+
+-   `keep_matching`: Not supported in the initial implementation, may be added
+    later.
+
+##### Bucket Matchers: MatcherList
+
+A matcher's `predicate` determines if a request matches. We will support the
+following predicate types:
+
+-   `single_predicate`: A single condition to evaluate.
+    -   `input`: A `TypedExtensionConfig` specifying what part of the request to
+        match against. See the [Unified Matcher API Support] for supported
+        inputs.
+    -   `value_match`: A
+        [`StringMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L19)
+        to match the input against a string value. All string match types are
+        supported.
+    -   `custom_match`: A `TypedExtensionConfig` for custom matching logic. See
+        the [Unified Matcher API Support] for supported custom matchers.
+-   `or_matcher`: A list of predicates, returns true if any of them are true.
+-   `and_matcher`: A list of predicates, returns true if all of them are true.
+-   `not_matcher`: Inverts the result of a predicate.
+
+#### Config: RateLimitQuotaBucketSettings
+
+The `RateLimitQuotaBucketSettings` message configures the behavior of a bucket.
+We will support the following fields:
+
+-   `bucket_id_builder`: Used to construct the `BucketId` for each request. If
+    not set, requests are not assigned to a bucket, not reported to the RLQS
+    server, and are handled by `no_assignment_behavior`.
+    -   `bucket_id_builder`: A map from string to `ValueBuilder`.
+        -   `ValueBuilder`: One of the following must be set:
+            -   `string_value`: A static string value.
+            -   `custom_value`: A `TypedExtensionConfig` that resolves to a
+                string. The supported extensions are the same as for matcher
+                inputs.
+-   `reporting_interval`: Must be present. The interval at which the client
+    reports usage to the RLQS server. Must be greater than 100ms.
+-   `deny_response_settings`: Customizes the response for denied requests.
+    -   `http_status`: HTTP status code for denied HTTP requests. Defaults to
+        1.  gRPC requests are not affected.
+    -   `http_body`: HTTP response body for denied HTTP requests. gRPC requests
+        are not affected.
+    -   `grpc_status`: `google.rpc.Status` for denied gRPC requests. Defaults to
+        `UNAVAILABLE`.
+    -   `response_headers_to_add`: A list of up to 10 headers to add to the deny
+        response, as described in [Config: HeaderValueOption].
+-   `no_assignment_behavior`: Behavior before the first quota assignment is
+    received. If not set, all requests are allowed.
+    -   `fallback_rate_limit`: A
+        [`RateLimitStrategy`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L16)
+        to apply.
+        -   `blanket_rule`: One of `ALLOW_ALL` or `DENY_ALL`.
+        -   `requests_per_time_unit`: A token bucket-style rate limit.
+-   `expired_assignment_behavior`: Behavior when a quota assignment expires and
+    cannot be refreshed. If not set, the bucket is abandoned.
+    -   `expired_assignment_behavior_timeout`: How long to apply the expired
+        assignment behavior before abandoning the bucket. Defaults to 0 (abandon
+        immediately).
+    -   One of the following must be set:
+        -   `fallback_rate_limit`: A `RateLimitStrategy` to apply.
+        -   `reuse_last_assignment`: Reuse the last known quota assignment.
 
 ### RLQS Components
 
@@ -645,7 +740,7 @@ Usage reports are sent in following scenarios:
 xDS Control Plane provides RLQS connection details in [GrpcService.GoogleGrpc]
 message as specified in [A102].
 
-#### Unified Matcher API
+#### Unified Matcher API Support
 
 RPCs will be matched into buckets using [Unified Matcher API] — an adaptable
 framework that can be used in any xDS component that needs matching features.
