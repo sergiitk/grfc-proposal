@@ -62,10 +62,10 @@ which are covered in the proposal:
 
 [RateLimitQuotaFilterConfig]: #ratelimitquotafilterconfig
 [RateLimitQuotaOverride]: #ratelimitquotaoverride
-[Config: RuntimeFractionalPercent]: #config-runtimefractionalpercent
-[Config: HeaderValueOption]: #config-headervalueoption
+[Config: `RuntimeFractionalPercent`]: #config-runtimefractionalpercent
+[Config: `HeaderValueOption`]: #config-headervalueoption
 [Config: Bucket Matchers]: #config-bucket-matchers
-[Config: RateLimitQuotaBucketSettings]: #config-ratelimitquotabucketsettings
+[Config: `RateLimitQuotaBucketSettings`]: #config-ratelimitquotabucketsettings
 
 [RLQS xDS HTTP Filter: Channel Level]: #rlqs-xds-http-filter-channel-level
 [RLQS Buckets and Multithreading]: #rlqs-buckets-and-multithreading
@@ -92,61 +92,61 @@ which are covered in the proposal:
 The RLQS Filter API is defined in
 [rate_limit_quota.proto](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto).
 
-#### RateLimitQuotaFilterConfig
+#### `RateLimitQuotaFilterConfig`
 
 We will support the following fields in the
-[RateLimitQuotaFilterConfig](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L37)
+[`RateLimitQuotaFilterConfig`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L37)
 message:
 
--   [rlqs_server](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L39):
+-   [`rlqs_server`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L39):
     This field must be present. Inside of it, GrpcService as described in
     [A102].
--   [domain](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L44):
+-   [`domain`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L44):
     This field must be present and non-empty.
--   [bucket_matchers](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L115):
+-   [`bucket_matchers`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L115):
     This field must be present. Inside of it, there must be a valid matchers
     structure as described in [Config: Bucket Matchers].
--   [filter_enabled](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L121):
+-   [`filter_enabled`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L121):
     Specifies the fraction of requests for which the rate limiting is enabled.
     When not present, the filter is enabled for all requests (100%). Otherwise,
-    the fraction is determined from [Config: RuntimeFractionalPercent].
--   [filter_enforced](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L132):
+    the fraction is determined from [Config: `RuntimeFractionalPercent`].
+-   [`filter_enforced`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L132):
     Specifies the fraction of requests for which the rate limiting is enforced.
     When not present, the filter is enforced for all requests (100%). Otherwise,
-    the fraction is determined from [Config: RuntimeFractionalPercent].
--   [request_headers_to_add_when_not_enforced](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L137):
-    If present, must be a list of [Config: HeaderValueOption]. Must not contain
-    more than 10 items.
+    the fraction is determined from [Config: `RuntimeFractionalPercent`].
+-   [`request_headers_to_add_when_not_enforced`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L137):
+    If present, must be a list of [Config: `HeaderValueOption`]. Must not
+    contain more than 10 items.
 
-#### RateLimitQuotaOverride
+#### `RateLimitQuotaOverride`
 
 We will support the following fields in the
-[RateLimitQuotaFilterConfig](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L143)
+[`RateLimitQuotaOverride`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L143)
 message:
 
--   [domain](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L44):
+-   [`domain`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L44):
     If non-empty, overrides the domain value provided on the less specific
     definition.
--   [bucket_matchers](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L115):
+-   [`bucket_matchers`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L115):
     If present, must be a valid matchers structure as described in
     [Config: Bucket Matchers], and fully overrides the matchers provided on the
     less specific definition.
 
-#### Config: RuntimeFractionalPercent
+#### Config: `RuntimeFractionalPercent`
 
 We will support the following fields in the
 [RuntimeFractionalPercent](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L643)
 proto:
 
--   [default_value](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L648):
+-   [`default_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L648):
     This field must be present. If the denominator specified is less than the
     numerator, the final fractional percentage is capped at 1 (100%). The
     fraction specified with:
-    -   [numerator](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L52):
+    -   [`numerator`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L52):
         Non-negative integer, 0 by default.
-    -   [denominator](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L56):
+    -   [`denominator`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L56):
         Must be one of the
-        [DenominatorType](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L34)
+        [`DenominatorType`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L34)
         values:
         -   `HUNDRED` (default)
         -   `TEN_THOUSAND`
@@ -155,41 +155,41 @@ proto:
 
 The following fields will be ignored by gRPC:
 
-- runtime_key: gRPC does not have Envoy's concept of runtime settings.
+- `runtime_key`: gRPC does not have Envoy's concept of runtime settings.
 
-#### Config: HeaderValueOption
+#### Config: `HeaderValueOption`
 
 We will support the following fields in the
-[HeaderValueOption](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L429)
+[`HeaderValueOption`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L429)
 proto:
 
--   [header](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L458):
+-   [`header`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L458):
     Must be present.
-    -   [key](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L404):
+    -   [`key`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L404):
         Value length must be in the range `[1, 16384)`. Must be a valid HTTP/2
         header name.
-    -   [value](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L415):
+    -   [`value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L415):
         Specifies the header value. Must be shorter than 16384 bytes. Must be a
         valid HTTP/2 header value. Not used if `key` ends in `-bin` and
         `raw_value` is set.
-    -   [raw_value](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L422):
+    -   [`raw_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L422):
         Used only if `key` ends in `-bin`. Must be shorter than 16384 bytes.
         Will be base64-encoded on the wire, unless the pure binary metadata
         extension from [gRFC G1: True Binary Metadata][G1] is used.
--   [append_action](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L476):
+-   [`append_action`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L476):
     Must be of the
-    [HeaderAppendAction](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L434)
+    [`HeaderAppendAction`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L434)
     values:
     -   `APPEND_IF_EXISTS_OR_ADD` (default)
     -   `ADD_IF_ABSENT`
     -   `OVERWRITE_IF_EXISTS_OR_ADD`
     -   `OVERWRITE_IF_EXISTS`
--   [keep_empty_value](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L480)
+-   [`keep_empty_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L480)
 -   All other fields are ignored.
 
 The following fields will be ignored by gRPC:
 
--   append: Deprecated in favor of `append_action`.
+-   `append`: Deprecated in favor of `append_action`.
 
 #### Config: Bucket Matchers
 
@@ -197,7 +197,7 @@ The `bucket_matchers` field is a
 [`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L22)
 (see [Unified Matcher API Support]) used to assign requests based on their
 metadata to bucket configurations as defined in
-[Config: RateLimitQuotaBucketSettings].
+[Config: `RateLimitQuotaBucketSettings`].
 
 We will support the following fields:
 
@@ -221,7 +221,7 @@ A match action is defined by an `OnMatch` message, which contains either a
 nested `Matcher` or an `action`. For RLQS, the `action` must be a
 [`TypedExtensionConfig`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/core/v3/extension.proto#L14)
 containing a `RateLimitQuotaBucketSettings` message as described in
-[Config: RateLimitQuotaBucketSettings].
+[Config: `RateLimitQuotaBucketSettings`].
 
 The following fields will be ignored by gRPC:
 
@@ -247,7 +247,7 @@ following predicate types:
 -   `and_matcher`: A list of predicates, returns true if all of them are true.
 -   `not_matcher`: Inverts the result of a predicate.
 
-#### Config: RateLimitQuotaBucketSettings
+#### Config: `RateLimitQuotaBucketSettings`
 
 The `RateLimitQuotaBucketSettings` message configures the behavior of a bucket.
 We will support the following fields:
@@ -271,7 +271,7 @@ We will support the following fields:
     -   `grpc_status`: `google.rpc.Status` for denied gRPC requests. Defaults to
         `UNAVAILABLE`.
     -   `response_headers_to_add`: A list of up to 10 headers to add to the deny
-        response, as described in [Config: HeaderValueOption].
+        response, as described in [Config: `HeaderValueOption`].
 -   `no_assignment_behavior`: Behavior before the first quota assignment is
     received. If not set, all requests are allowed.
     -   `fallback_rate_limit`: A
