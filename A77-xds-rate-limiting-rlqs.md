@@ -69,7 +69,11 @@ which are covered in the proposal:
 
 [RLQS xDS HTTP Filter: Channel Level]: #rlqs-xds-http-filter-channel-level
 [RLQS Buckets and Multithreading]: #rlqs-buckets-and-multithreading
+
 [Unified Matcher API Support]: #unified-matcher-api-support
+[Unified Matcher Extension: `HttpRequestHeaderMatchInput`]: #unified-matcher-extension-httprequestheadermatchinput
+[Unified Matcher Extension: `HttpAttributesCelMatchInput`]: #unified-matcher-extension-httpattributescelmatchinput
+[Unified Matcher Extension: `CelMatcher`]: #unified-matcher-extension-celmatcher
 
 [On Data Plane RPC]: #on-data-plane-rpc
 [On RLQS Server Response]: #on-rlqs-server-response
@@ -78,9 +82,6 @@ which are covered in the proposal:
 
 [Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [Envoy CEL environment]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
-
-[`xds.type.matcher.v3.HttpAttributesCelMatchInput`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/http_inputs.proto#L22
-[`xds.type.matcher.v3.CelMatcher`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L30
 
 [TokenBucket]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto
 [GrpcService.GoogleGrpc]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/grpc_service.proto#L68
@@ -197,71 +198,21 @@ The following fields will be ignored by gRPC:
 
 #### Config: Bucket Matchers
 
-RPCs will be matched into buckets using [Unified Matcher API] — an adaptable
-framework for xDS components requiring matching features. General details on
-parsing and validating the proto are described in [Unified Matcher API Support].
+RPCs are matched into buckets using the [Unified Matcher API] — an adaptable
+framework for xDS components requiring matching features. For details on general
+Unified Matcher proto parsing and validation, see [Unified Matcher API Support].
 
-For RLQS, the `bucket_matchers` field in the filter config will contain a
-Unified Matcher tree restricted to the following protocol-specific types (packed
-as [`TypedExtensionConfig`]):
+Specifically for RLQS, the `bucket_matchers` field in the filter config will
+contain a Unified Matcher restricted to the following protocol-specific types,
+packed as a [`TypedExtensionConfig`]:
 
-1. Input specification: [`xds.type.matcher.v3.HttpAttributesCelMatchInput`].
-2. Custom matching logic: [`xds.type.matcher.v3.CelMatcher`].
-3. Protocol-specific action: [Config: `RateLimitQuotaBucketSettings`].
+1.  Input specification:
+    [Unified Matcher Extension: `HttpAttributesCelMatchInput`].
+2.  Custom matching logic: [Unified Matcher Extension: `CelMatcher`].
+3.  Protocol-specific action: [Config: `RateLimitQuotaBucketSettings`].
 
 Any other types are considered invalid and will result in gRPC NACKing the xDS
 resource.
-
----
-
-
- When evaluated against RPC metadata, this tree must yield
-an `OnMatch.action` that contains a [Config: `RateLimitQuotaBucketSettings`][]
-message (packed as a [`TypedExtensionConfig`]). Any other action type is
-considered invalid and will result in gRPC NACKing the xDS resource.
-
-
-RLQS will only support `HttpAttributesCelMatchInput`
-The RPC metadata will serve as an input to
-[`HttpAttributesCelMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/http_inputs.proto#envoy-v3-api-msg-xds-type-matcher-v3-httpattributescelmatchinput).
-
-A match action is defined by an `OnMatch` message, which contains either a
-nested `Matcher` or an `action`. For RLQS, the `action` must be a
-[`TypedExtensionConfig`]()
-containing a `RateLimitQuotaBucketSettings` message as described in
-[Config: `RateLimitQuotaBucketSettings`].
-
-
-In this iteration the following Unified Mather extensions will be supported:
-
-1. Inputs:
-    1. [`HttpRequestHeaderMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/matcher/v3/http_inputs.proto#type-matcher-v3-httprequestheadermatchinput)
-    2. [`HttpAttributesCelMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/http_inputs.proto#envoy-v3-api-msg-xds-type-matcher-v3-httpattributescelmatchinput)
-2. Custom Matchers:
-    1. [`CelMatcher`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/cel.proto.html)
-
-
-The `bucket_matchers` field is a
-[`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L22)
-(see [Unified Matcher API Support]) used to assign requests based on their
-metadata to bucket configurations as defined in
-[Config: `RateLimitQuotaBucketSettings`].
-
-We will support the following fields:
-
--   `matcher_type`: One of the following must be set:
-    -   `matcher_list`: A
-        [`MatcherList`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L43)
-        containing a list of matchers to evaluate in order. The first one that
-        matches wins.
-    -   `matcher_tree`: A
-        [`MatcherTree`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L99)
-        that maps input values to actions.
--   `on_no_match`: If set, specifies an action to take when no matcher succeeds.
-    Must be a valid
-    [`OnMatch`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L24)
-    message. If not set, requests that do not match are allowed and not reported
-    to the RLQS server.
 
 ##### Bucket Matchers: OnMatch
 
@@ -296,10 +247,6 @@ following predicate types:
 -   `not_matcher`: Inverts the result of a predicate.
 
 #### Config: `RateLimitQuotaBucketSettings`
-
-which
-contains the information needed to associate the RPC with `bucket_id` and the
-default rate limiting configuration.
 
 The `RateLimitQuotaBucketSettings` message configures the behavior of a bucket.
 We will support the following fields:
@@ -811,10 +758,31 @@ default rate limiting configuration.
 In this iteration the following Unified Mather extensions will be supported:
 
 1. Inputs:
-    1. [`HttpRequestHeaderMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/matcher/v3/http_inputs.proto#type-matcher-v3-httprequestheadermatchinput)
-    2. [`HttpAttributesCelMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/http_inputs.proto#envoy-v3-api-msg-xds-type-matcher-v3-httpattributescelmatchinput)
+    1. [Unified Matcher Extension: `HttpRequestHeaderMatchInput`]
+    2. [Unified Matcher Extension: `HttpAttributesCelMatchInput`]
 2. Custom Matchers:
-    1. [`CelMatcher`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/cel.proto.html)
+    1. [Unified Matcher Extension: `CelMatcher`]
+
+##### Unified Matcher Extension: `HttpRequestHeaderMatchInput`
+
+* [`xds.type.matcher.v3.HttpAttributesCelMatchInput`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/http_inputs.proto#L22)
+* [`HttpRequestHeaderMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/matcher/v3/http_inputs.proto#type-matcher-v3-httprequestheadermatchinput)
+
+TODO(sergiitk): finish
+
+##### Unified Matcher Extension: `HttpAttributesCelMatchInput`
+
+* [`xds.type.matcher.v3.HttpAttributesCelMatchInput`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/http_inputs.proto#L22)
+* [`HttpAttributesCelMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/http_inputs.proto#envoy-v3-api-msg-xds-type-matcher-v3-httpattributescelmatchinput)
+
+TODO(sergiitk): finish
+
+##### Unified Matcher Extension: `CelMatcher`
+
+* [`xds.type.matcher.v3.CelMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L30)
+* [`CelMatcher`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/cel.proto.html)
+
+TODO(sergiitk): finish
 
 #### CEL Integration
 
