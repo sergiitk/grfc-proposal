@@ -73,8 +73,9 @@ which are covered in the proposal:
 
 [Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [Unified Matcher API Support]: #unified-matcher-api-support
-[Unified Matcher: Filter Specifications]: #unified-matcher-filter-specifications
-[Unified Matcher Inputs]: #unified-matcher-inputs
+[Unified Matcher: Filter Integration]: #unified-matcher-filter-integration
+[Unified Matcher: Input Extensions]: #unified-matcher-input-extensions
+[Unified Matcher: Matching Extensions]: #unified-matcher-matching-extensions
 [Unified Matcher: `Matcher`]: #unified-matcher-matcher
 [Unified Matcher: `OnMatch`]: #unified-matcher-onmatch
 [Unified Matcher: `MatcherList`]: #unified-matcher-matcherlist
@@ -325,17 +326,17 @@ to associate the RPC with `bucket_id` and the default rate limiting
 configuration.
 
 Filter-specific Unified Matcher configuration per
-[Unified Matcher: Filter Specifications]:
+[Unified Matcher: Filter Integration]:
 
 -   Supported protocol-specific actions:
     1.  [Config: `RateLimitQuotaBucketSettings`].
--   Supported input extensions:
+-   Supported [Unified Matcher: Input Extensions]:
     1.  [Unified Matcher: `HttpRequestHeaderMatchInput`].
     2.  [Unified Matcher: `HttpAttributesCelMatchInput`].
--   Supported matching extensions, and any limitations on their inputs:
-    1.  [Unified Matcher: `StringMatcher`], input restricted to
+-   Supported [Unified Matcher: Matching Extensions].
+    1.  [Unified Matcher: `StringMatcher`], input effectively restricted to
         `HttpRequestHeaderMatchInput`.
-    1.  [Unified Matcher: `CelMatcher`], input restricted to
+    1.  [Unified Matcher: `CelMatcher`], input effectively restricted to
         `HttpAttributesCelMatchInput`.
 -   Filter-specific default no-match behavior:
     -   The RPC is allowed by default and not reported to the RLQS server.
@@ -350,6 +351,7 @@ resource.
 The diagram below shows the conceptual components of the RLQS Filter. Note that
 the actual implementation may vary depending on the language.
 
+<!-- disableFinding(SNIPPET_INVALID_LANGUAGE) -->
 ```mermaid
 ---
 config:
@@ -818,16 +820,20 @@ In this iteration the following Unified Mather extensions will be supported:
     1.  [Unified Matcher: `StringMatcher`] (standard matcher)
     1.  [Unified Matcher: `CelMatcher`]
 
-#### Unified Matcher: Filter Specifications
+#### Unified Matcher: Filter Integration
 
 When implementing Unified Matcher API, a filter must define the following:
 
 -   Supported protocol-specific actions (see [Unified Matcher: `OnMatch`]).
--   Supported input extensions.
--   Supported matching extensions, and any limitations on their inputs.
+-   Supported [Unified Matcher: Input Extensions].
+-   Supported [Unified Matcher: Matching Extensions], including any additional
+    limitations on their inputs.
 -   Filter-specific default no-match behavior (f.e. xDS resource NACK).
 
 ##### Unified Matcher: `Matcher`
+
+Unified Matcher API allows to build matcher trees of unrestricted depth. gRPC
+will reject any matcher definition with 
 
 We will support the following fields in the
 [`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L22)
@@ -885,7 +891,7 @@ message:
                 -   [`input`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L50):
                     A valid [`TypedExtensionConfig`]. Must be present and
                     contain one of the input extensions
-                    [supported by the filter][Unified Matcher: Filter Specifications].
+                    [supported by the filter][Unified Matcher: Filter Integration].
                     Must have return type compatible with the `matcher`.
                 -   `matcher`: One of the following must be present and valid:
                     -   [`value_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L56):
@@ -894,7 +900,7 @@ message:
                     -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L60):
                         A valid [`TypedExtensionConfig`] containing one of the
                         matching extensions
-                        [supported by the filter][Unified Matcher: Filter Specifications].
+                        [supported by the filter][Unified Matcher: Filter Integration].
                         Must have input type compatible with the `input`. Must
                         return a boolean indicating the status of the match.
             -   [`or_matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L76):
@@ -928,7 +934,7 @@ message:
 -   [`input`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L106):
     A valid [`TypedExtensionConfig`]. Must be present and contain one of the
     input extensions
-    [supported by the filter][Unified Matcher: Filter Specifications]. Must have
+    [supported by the filter][Unified Matcher: Filter Integration]. Must have
     return type compatible with the `matcher`.
 -   `tree_type`: One of the following must be present and valid:
     -   [`exact_match_map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L114):
@@ -948,11 +954,11 @@ message:
     -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L120):
         A valid [`TypedExtensionConfig`] containing one of the matching
         extensions
-        [supported by the filter][Unified Matcher: Filter Specifications]. Must
+        [supported by the filter][Unified Matcher: Filter Integration]. Must
         have input type compatible with the `input`. Must return a boolean
         indicating the status of the match.
 
-##### Unified Matcher Inputs
+##### Unified Matcher: Input Extensions
 
 ###### Unified Matcher: `HttpRequestHeaderMatchInput`
 
@@ -978,11 +984,11 @@ message:
 
 -   no fields.
 
-##### Unified Matcher Matchers
+##### Unified Matcher: Matching Extensions
 
-##### Unified Matcher: `StringMatcher`
+###### Unified Matcher: `StringMatcher`
 
-Compatible with [Unified Matcher Inputs] that return a `string`.
+Compatible with [Unified Matcher: Input Extensions] that return a `string`.
 
 We will support the following fields in the
 [`xds.type.matcher.v3.StringMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L19)
@@ -1006,7 +1012,7 @@ result in xDS resource NACK:
 -   `safe_regex`
 -   `custom`
 
-##### Unified Matcher: `CelMatcher`
+###### Unified Matcher: `CelMatcher`
 
 Compatible with [Unified Matcher: `HttpAttributesCelMatchInput`].
 
