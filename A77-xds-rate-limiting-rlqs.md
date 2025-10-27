@@ -70,7 +70,9 @@ which are covered in the proposal:
 [RLQS xDS HTTP Filter: Channel Level]: #rlqs-xds-http-filter-channel-level
 [RLQS Buckets and Multithreading]: #rlqs-buckets-and-multithreading
 
+[Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [Unified Matcher API Support]: #unified-matcher-api-support
+[Unified Matcher Inputs]: #unified-matcher-inputs
 [Unified Matcher: `Matcher`]: #unified-matcher-matcher
 [Unified Matcher: `OnMatch`]: #unified-matcher-onmatch
 [Unified Matcher: `MatcherList`]: #unified-matcher-matcherlist
@@ -80,13 +82,13 @@ which are covered in the proposal:
 [Unified Matcher: `StringMatcher`]: #unified-matcher-stringmatcher
 [Unified Matcher: `CelMatcher`]: #unified-matcher-celmatcher
 
+[Envoy CEL environment]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
+[Supported CEL Variables]: #supported-cel-variables
+
 [On Data Plane RPC]: #on-data-plane-rpc
 [On RLQS Server Response]: #on-rlqs-server-response
 [On Report Timers]: #on-report-timers
 [On Sending Usage Reports]: #on-sending-usage-reports
-
-[Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
-[Envoy CEL environment]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
 
 [TokenBucket]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto
 [GrpcService.GoogleGrpc]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/grpc_service.proto#L68
@@ -855,15 +857,15 @@ message:
         [`Matcher.MatcherTree.MatchMap`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L101)
         message. Only compatible with `input` that returns a string.
         -   [`map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L102):
-            A map from string to `OnMatch` messages. Must contain at least 1
-            pair.
+            A map from a string to a valid [Unified Matcher: `OnMatch`] message.
+            Must contain at least 1 pair.
     -   [`prefix_match_map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L117):
         A
         [`Matcher.MatcherTree.MatchMap`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L101)
         message. Only compatible with `input` that returns a string.
         -   [`map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L102):
-            A map from string to `OnMatch` messages. Must contain at least 1
-            pair.
+            A map from a string to a valid [Unified Matcher: `OnMatch`] message.
+            Must contain at least 1 pair.
     -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L120):
         A valid [`TypedExtensionConfig`] containing one of the custom matcher
         extensions supported by the filter. Must have input type compatible with
@@ -873,34 +875,68 @@ message:
 
 ###### Unified Matcher: `HttpRequestHeaderMatchInput`
 
-* [`HttpRequestHeaderMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/matcher/v3/http_inputs.proto#type-matcher-v3-httprequestheadermatchinput)
+Returns a `string` containing the value of the header with name specified in
+`header_name`.
 
-TODO(sergiitk): finish
+We will support the following fields in the
+[`envoy.type.matcher.v3.HttpRequestHeaderMatchInput`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/matcher/v3/http_inputs.proto#L22)
+message:
+
+-   [`header_name`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L106):
+    Must be present. Value length must be in the range `[1, 16384)`. Must be a
+    valid HTTP/2 header name.
 
 ###### Unified Matcher: `HttpAttributesCelMatchInput`
 
-* [`xds.type.matcher.v3.HttpAttributesCelMatchInput`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/http_inputs.proto#L22)
-* [`HttpAttributesCelMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/http_inputs.proto#envoy-v3-api-msg-xds-type-matcher-v3-httpattributescelmatchinput)
+Returns a language-specific interface that allows to access request RPC metadata
+as defined in [Supported CEL Variables].
 
-TODO(sergiitk): finish
+We will support the following fields in the
+[`xds.type.matcher.v3.HttpAttributesCelMatchInput`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/http_inputs.proto#L22)
+message:
+
+-   no fields.
 
 ##### Unified Matcher Matchers
 
 ##### Unified Matcher: `StringMatcher`
 
-TODO(sergiitk): finish
+Compatible with [Unified Matcher Inputs] that return a `string`.
+
+We will support the following fields in the
+[`xds.type.matcher.v3.StringMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L19)
+message:
+
+-   `match_pattern`: One of the following must be present and valid:
+    -   [`exact`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L28):
+        The input string must match exactly. An empty string is a valid value.
+    -   [`prefix`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L36):
+        The input string must have this prefix. Must be non-empty.
+    -   [`suffix`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L44):
+        The input string must have this suffix. Must be non-empty.
+    -   [`contains`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L55):
+        The input string must contain this substring. Must be non-empty.
+-   [`ignore_case`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L65):
+    If `true`, the matching is case-insensitive.
+
+The following are not supported by gRPC in the initial implementation and will
+result in xDS resource NACK:
+
+-   `safe_regex`
+-   `custom`
 
 ##### Unified Matcher: `CelMatcher`
 
-* [`xds.type.matcher.v3.CelMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L30)
-* [`CelMatcher`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/cel.proto.html)
+Compatible with [Unified Matcher: `HttpAttributesCelMatchInput`].
+
+
 
 TODO(sergiitk): finish
 
 #### CEL Integration
 
 We will support request metadata matching via CEL expressions. Only Canonical
-CEL and only checked expressions will be supported (`cel.expr.CheckedExpr`).
+CEL and only checked expressions will be supported [`cel.expr.CheckedExpr`].
 
 CEL evaluation environment is a set of available variables and extension
 functions in a CEL program. We will match [Envoy CEL environment].
@@ -929,8 +965,9 @@ except comprehension-style macros.
 
 ##### Supported CEL Variables
 
-For RLQS, only the `request` variable is supported in CEL expressions. We will
-adapt [Envoy's Request Attributes](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes#request-attributes)
+In the initial implementation only the `request` variable is supported in CEL
+expressions. We will adapt
+[Envoy's Request Attributes](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes#request-attributes)
 for gRPC.
 
 | Attribute           | Type                  | gRPC source                  | Envoy Description                                           |
