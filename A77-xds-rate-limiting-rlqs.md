@@ -36,7 +36,7 @@ which are covered in the proposal:
 1.  xDS Control Plane will provide RLQS connection details in
     [the filter config][RateLimitQuotaFilterConfig] via GrpcService message as
     described in [A102].
-2.  Quota assignments will be configured via [TokenBucket] message.
+2.  Quota assignments will be configured via [`TokenBucket`] message.
 3.  RPCs will be matched into buckets using [Unified Matcher API].
 4.  One of the matching mechanisms will be [CEL](https://cel.dev/) (Common
     Expression Language).
@@ -65,7 +65,6 @@ which are covered in the proposal:
 [Config: Bucket Matchers]: #config-bucket-matchers
 [Config: `RateLimitQuotaBucketSettings`]: #config-ratelimitquotabucketsettings
 [Config: `RateLimitStrategy`]: #config-ratelimitstrategy
-[Config: `TokenBucket`]: #config-tokenbucket
 [Config: `HeaderValueOption`]: #config-headervalueoption
 [Config: `RuntimeFractionalPercent`]: #config-runtimefractionalpercent
 
@@ -95,12 +94,11 @@ which are covered in the proposal:
 [On Report Timers]: #on-report-timers
 [On Sending Usage Reports]: #on-sending-usage-reports
 
-[TokenBucket]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto
-[GrpcService.GoogleGrpc]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/grpc_service.proto#L68
+[`TokenBucket`]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto
 [`TypedExtensionConfig`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/core/v3/extension.proto#L14
 
-[`google.rpc.Status`]: https://github.com/googleapis/googleapis/blob/7a87bf05880470b360f42e2b7f9ff5b28fa6cbe0/google/rpc/status.proto
 [gRPC Status Codes]: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+[`google.rpc.Status`]: https://github.com/googleapis/googleapis/blob/7a87bf05880470b360f42e2b7f9ff5b28fa6cbe0/google/rpc/status.proto
 [`google.protobuf.Duration`]: https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration
 
 [rlqs_proto]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto
@@ -231,7 +229,8 @@ message:
             or a dynamic
             [`custom_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L276).
             For `custom_value`, we support [`TypedExtensionConfig`] containing
-            [Unified Matcher: `HttpRequestHeaderMatchInput`].
+            [Unified Matcher: `HttpRequestHeaderMatchInput`] in the initial
+            implementation.
 -   [`reporting_interval`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L398):
     Must be present. A [`google.protobuf.Duration`] specifying the interval for
     reporting quota usage. Must be greater than 100ms. Note that gRPC will apply
@@ -276,33 +275,40 @@ The following fields will be ignored by gRPC:
 #### Config: `RateLimitStrategy`
 
 We will support the following fields in the
-[`RateLimitStrategy`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L20)
+[`RateLimitStrategy`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L22)
 message:
 
--   `strategy`: One of the following must be present:
-    -   [`blanket_rule`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L31):
-        An enum that can be `ALLOW_ALL` or `DENY_ALL`.
+-   `strategy`: One of the following must be present and valid:
+    -   [`blanket_rule`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L67):
+        An
+        [`BlanketRule`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L24)
+        enum that can be `ALLOW_ALL` or `DENY_ALL`. Defaults to `ALLOW_ALL` when
+        the field is defined, but its value is not specified.
+    -   [`requests_per_time_unit`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L72):
+        This field allows to specify the rate limit without mandating a specific
+        algorithm. gRPC language implementation may choose an algorithm best
+        suitable to their language, or use a [`TokenBucket`] of an equivalent
+        rate. The rate limit parameters are specified in a
+        [`RequestsPerTimeUnit`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L43)
+        message:
+        -   [`requests_per_time_unit`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L54):
+            Must be present. If set to `0`, all requests are denied.
+        -   [`time_unit`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L52):
+            Must be a valid
+            [`RateLimitUnit`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_unit.proto#L16)
+            enum value. Ignored if `requests_per_time_unit` is `0`.
     -   [`token_bucket`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L37):
-        A [Config: `TokenBucket`] strategy.
-
-The following fields will be ignored by gRPC:
-
--   `requests_per_time_unit`: Deprecated in favor of `token_bucket`.
-
-#### Config: `TokenBucket`
-
-We will support the following fields in the
-[`TokenBucket`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L19)
-message:
-
--   [`max_tokens`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L24):
-    Must be present and greater than 0. The maximum number of tokens that the
-    bucket can hold.
--   [`tokens_per_fill`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L30):
-    The number of tokens added to the bucket during each fill interval. Must be
-    greater than 0. Defaults to 1.
--   [`fill_interval`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L36):
-    Must be present. The interval at which tokens are added to the bucket.
+        A [`TokenBucket`] message containing configuration for a
+        [Token Bucket](https://en.wikipedia.org/wiki/Token_bucket) rate-limiting
+        algorithm:
+        -   [`max_tokens`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L26):
+            Must be present and greater than 0.
+        -   [`tokens_per_fill`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L30):
+            Must be greater than 0. Defaults to 1.
+        -   [`fill_interval`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L35):
+            Must be present and contain a positive [`google.protobuf.Duration`].
+            In addition to the specification, gRPC will reject values less than
+            100ms second.
 
 #### Config: Bucket Matchers
 
@@ -786,7 +792,8 @@ Usage reports are sent in following scenarios:
 
 #### Connecting to RLQS Control Plane
 
-xDS Control Plane provides RLQS connection details in [GrpcService.GoogleGrpc]
+xDS Control Plane provides RLQS connection details in
+[`GrpcService.GoogleGrpc`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/grpc_service.proto#L68)
 message as specified in [A102].
 
 #### Unified Matcher API Support
