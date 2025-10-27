@@ -70,6 +70,7 @@ which are covered in the proposal:
 
 [RLQS xDS HTTP Filter: Channel Level]: #rlqs-xds-http-filter-channel-level
 [RLQS Buckets and Multithreading]: #rlqs-buckets-and-multithreading
+[Connecting to RLQS Control Plane]: #connecting-to-rlqs-control-plane
 
 [Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [Unified Matcher API Support]: #unified-matcher-api-support
@@ -119,7 +120,7 @@ message:
 
 -   [`rlqs_server`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L39):
     This field must be present. Inside of it, GrpcService as described in
-    [A102].
+    [Connecting to RLQS Control Plane] and [A102].
 -   [`domain`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L44):
     This field must be present and non-empty.
 -   [`bucket_matchers`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L115):
@@ -145,17 +146,19 @@ message:
 
 -   [`domain`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L44):
     If non-empty, overrides the domain value provided on the less specific
-    definition.
+    definition. This value overrides the `domain` specified in the channel-level
+    filter configuration.
 -   [`bucket_matchers`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L115):
-    If present, must be a valid matchers structure as described in
-    [Config: Bucket Matchers], and fully overrides the matchers provided on the
-    less specific definition.
+    If present, this field must contain a valid matchers structure as described
+    in [Config: Bucket Matchers]. It fully overrides the `bucket_matchers`
+    provided of the less specific definition.
 
 #### Config: Bucket Matchers
 
 RPCs are matched into buckets using the [Unified Matcher API] — an adaptable
 framework for xDS components requiring matching features. For details on general
-Unified Matcher proto parsing and validation, see [Unified Matcher API Support].
+parsing and validation of the Unified Matcher, see
+[Unified Matcher API Support].
 
 The `bucket_matchers` field in the filter config will contain a Unified Matcher
 restricted to the protocol-specific types, packed as a [`TypedExtensionConfig`].
@@ -203,9 +206,9 @@ message:
             [`string_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L272)
             or a dynamic
             [`custom_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L276).
-            For `custom_value`, we support [`TypedExtensionConfig`] containing
-            [Unified Matcher: `HttpRequestHeaderMatchInput`] in the initial
-            implementation.
+            For `custom_value`, the initial implementation will support a
+            [`TypedExtensionConfig`] containing a
+            [Unified Matcher: `HttpRequestHeaderMatchInput`].
 -   [`reporting_interval`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L398):
     Must be present. A [`google.protobuf.Duration`] specifying the interval for
     reporting quota usage. Must be greater than 100ms. Note that gRPC will apply
