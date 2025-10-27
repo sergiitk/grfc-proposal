@@ -82,7 +82,9 @@ which are covered in the proposal:
 [Unified Matcher: `StringMatcher`]: #unified-matcher-stringmatcher
 [Unified Matcher: `CelMatcher`]: #unified-matcher-celmatcher
 
-[Envoy CEL environment]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes
+[`cel.expr.CheckedExpr`]: https://github.com/google/cel-spec/blob/master/proto/cel/expr/checked.proto
+[CEL Integration]: #cel-integration
+[CEL Runtime Restrictions]: #cel-runtime-restrictions
 [Supported CEL Variables]: #supported-cel-variables
 
 [On Data Plane RPC]: #on-data-plane-rpc
@@ -374,7 +376,7 @@ final class RlqsFilter implements Filter {
 }
 ```
 
-##### Future considerations
+###### Future considerations
 
 This proposal uses the entire RLQS Filter Config to identify the corresponding
 unique Filter State. As a result, a Filter State will be recreated even if only
@@ -929,9 +931,33 @@ result in xDS resource NACK:
 
 Compatible with [Unified Matcher: `HttpAttributesCelMatchInput`].
 
+Performs a match by evaluating a Common Expression Language (CEL) expression.
+See [CEL Integration] for details.
 
+We will support the following fields in the
+[`xds.type.matcher.v3.CelMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L30)
+message:
 
-TODO(sergiitk): finish
+-   [`expr_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L32):
+    Must be present and contain a valid
+    [`xds.type.v3.CelExpression`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L26)
+    message.
+    -   [`cel_expr_checked`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L49):
+        Must be present and contain a valid [`cel.expr.CheckedExpr`] message.
+        This message will be converted into a native CEL Abstract Syntax Tree
+        (AST) using the language-specific CEL library. The AST's output (return)
+        type must be boolean. The resulting CEL program must also be validated
+        to conform to [CEL Runtime Restrictions]. If any of these conversion or
+        validation steps fail, gRPC will NACK the xDS resource.
+-   [`description`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L36):
+    An optional string. May be ignored or used for testing/debugging.
+
+The following fields will be ignored by gRPC:
+
+-   `CelExpression.parsed_expr` - deprecated, only Canonical CEL is supported.
+-   `CelExpression.checked_expr` - deprecated, only Canonical CEL is supported.
+-   `CelExpression.cel_expr_parsed` - only Checked CEL expressions are
+    supported.
 
 #### CEL Integration
 
@@ -939,7 +965,33 @@ We will support request metadata matching via CEL expressions. Only Canonical
 CEL and only checked expressions will be supported [`cel.expr.CheckedExpr`].
 
 CEL evaluation environment is a set of available variables and extension
-functions in a CEL program. We will match [Envoy CEL environment].
+functions in a CEL program. We will match
+[Envoy CEL environment](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes)
+and CEL interpreter configuration.
+
+##### CEL Runtime Restrictions
+
+Certain CEL features can lead to superlinear time complexity or memory
+exhaustion. To ensure consistent behavior with Envoy and maintain security,
+gRPC will configure the CEL runtime
+[similar to Envoy](https://github.com/envoyproxy/envoy/blob/c57801c2afbe26dd6fad7f5ce764f267d07fbd04/source/extensions/filters/common/expr/evaluator.cc#L17-L23):
+
+```c
+// Disables comprehension expressions, e.g. exists(), all().
+options.enable_comprehension = false;
+
+// Limits the maximum program size for RE2 regex to 100.
+options.regex_max_program_size = 100;
+
+// Disables string() overloads.
+options.enable_string_conversion = false;
+
+// Disables string concatenation overload.
+options.enable_string_concat = false;
+
+// Disables list concatenation overload.
+options.enable_list_concat = false;
+```
 
 ##### Supported CEL Functions
 
@@ -994,7 +1046,7 @@ denies requests for all other method types.
 **<sup>2</sup> `request.headers`**\
 As defined in [A41], "header" field.
 
-##### Implementation
+###### CEL Variable Implementation Details
 
 For performance reasons, CEL variables should be resolved on demand. CEL Runtime
 provides the different variable resolving approaches based on the language:
@@ -1003,7 +1055,7 @@ provides the different variable resolving approaches based on the language:
 * Go: [`Activation.ResolveName(string)`](https://github.com/google/cel-go/blob/3f12ecad39e2eb662bcd82b6391cfd0cb4cb1c5e/interpreter/activation.go#L30)
 * Java: [`CelVariableResolver`](https://javadoc.io/doc/dev.cel/runtime/0.6.0/dev/cel/runtime/CelVariableResolver.html)
 
-### Temporary environment variable protection
+### Temporary Environment Variable Protection
 
 During initial development, this feature will be enabled via
 the `GRPC_EXPERIMENTAL_XDS_ENABLE_RLQS` environment variable. This environment
