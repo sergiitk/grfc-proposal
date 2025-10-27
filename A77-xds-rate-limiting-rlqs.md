@@ -72,6 +72,7 @@ which are covered in the proposal:
 
 [Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
 [Unified Matcher API Support]: #unified-matcher-api-support
+[Unified Matcher: Filter Specifications]: #unified-matcher-filter-specifications
 [Unified Matcher Inputs]: #unified-matcher-inputs
 [Unified Matcher: `Matcher`]: #unified-matcher-matcher
 [Unified Matcher: `OnMatch`]: #unified-matcher-onmatch
@@ -211,25 +212,32 @@ RPCs are matched into buckets using the [Unified Matcher API] — an adaptable
 framework for xDS components requiring matching features. For details on general
 Unified Matcher proto parsing and validation, see [Unified Matcher API Support].
 
-For RLQS, the `bucket_matchers` field in the filter config will contain a
-Unified Matcher restricted to the following protocol-specific types, packed as a
-[`TypedExtensionConfig`]:
+The `bucket_matchers` field in the filter config will contain a Unified Matcher
+restricted to the protocol-specific types, packed as a [`TypedExtensionConfig`].
 
-1.  Input specification (`input` fields):
-    [Unified Matcher: `HttpAttributesCelMatchInput`].
-2.  Custom matching logic (`custom_match` fields):
-    [Unified Matcher: `CelMatcher`].
-3.  Protocol-specific action (`OnMatch.action` field):
-    [Config: `RateLimitQuotaBucketSettings`].
+Evaluating the tree against RPC metadata yields
+[Config: `RateLimitQuotaBucketSettings`], which contains the information needed
+to associate the RPC with `bucket_id` and the default rate limiting
+configuration.
+
+Filter-specific Unified Matcher configuration per
+[Unified Matcher: Filter Specifications]:
+
+-   Supported protocol-specific actions:
+    1.  [Config: `RateLimitQuotaBucketSettings`].
+-   Supported input extensions:
+    1.  [Unified Matcher: `HttpRequestHeaderMatchInput`].
+    2.  [Unified Matcher: `HttpAttributesCelMatchInput`].
+-   Supported matching extensions, and any limitations on their inputs:
+    1.  [Unified Matcher: `StringMatcher`], input restricted to
+        `HttpRequestHeaderMatchInput`.
+    1.  [Unified Matcher: `CelMatcher`], input restricted to
+        `HttpAttributesCelMatchInput`.
+-   Filter-specific default no-match behavior:
+    -   The RPC is allowed by default and not reported to the RLQS server.
 
 Any other types are considered invalid and will result in gRPC NACKing the xDS
 resource.
-
-TODO(sergiitk): describe inputs/output?
-
-Evaluating the tree against RPC metadata yields `RateLimitQuotaBucketSettings`,
-which contains the information needed to associate the RPC with `bucket_id` and
-the default rate limiting configuration.
 
 #### Config: `RateLimitQuotaBucketSettings`
 
@@ -737,13 +745,6 @@ which is the preferred version for all new APIs using Unified Matcher. If
 `envoy.config.common.matcher.v3.Matcher` is provided, we will interpret it as is
 `xds.type.matcher.v3.Matcher`.
 
-When implementing Unified Matcher API, a filter must define the following:
-
--   Supported protocol-specific actions (see [Unified Matcher: `OnMatch`]).
--   Supported input extensions.
--   Supported custom matcher extensions, and any limitations on their inputs.
--   Filter-specific default no-match behavior (f.e. xDS resource NACK).
-
 In this iteration the following Unified Mather extensions will be supported:
 
 1.  Inputs:
@@ -752,6 +753,15 @@ In this iteration the following Unified Mather extensions will be supported:
 2.  Matchers:
     1.  [Unified Matcher: `StringMatcher`] (standard matcher)
     1.  [Unified Matcher: `CelMatcher`]
+
+#### Unified Matcher: Filter Specifications
+
+When implementing Unified Matcher API, a filter must define the following:
+
+-   Supported protocol-specific actions (see [Unified Matcher: `OnMatch`]).
+-   Supported input extensions.
+-   Supported matching extensions, and any limitations on their inputs.
+-   Filter-specific default no-match behavior (f.e. xDS resource NACK).
 
 ##### Unified Matcher: `Matcher`
 
@@ -810,7 +820,8 @@ message:
                 of the matcher.
                 -   [`input`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L50):
                     A valid [`TypedExtensionConfig`]. Must be present and
-                    contain one of the input extensions supported by the filter.
+                    contain one of the input extensions
+                    [supported by the filter][Unified Matcher: Filter Specifications].
                     Must have return type compatible with the `matcher`.
                 -   `matcher`: One of the following must be present and valid:
                     -   [`value_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L56):
@@ -818,9 +829,10 @@ message:
                         compatible with `input` that returns a string.
                     -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L60):
                         A valid [`TypedExtensionConfig`] containing one of the
-                        custom matcher extensions supported by the filter. Must
-                        have input type compatible with the `input`. Must return
-                        a boolean indicating the status of the match.
+                        custom matcher extensions
+                        [supported by the filter][Unified Matcher: Filter Specifications].
+                        Must have input type compatible with the `input`. Must
+                        return a boolean indicating the status of the match.
             -   [`or_matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L76):
                 A
                 [`Matcher.MatcherList.Predicate.PredicateList`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L65)
@@ -851,8 +863,9 @@ message:
 
 -   [`input`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L106):
     A valid [`TypedExtensionConfig`]. Must be present and contain one of the
-    input extensions supported by the filter. Must have return type compatible
-    with the `matcher`.
+    input extensions
+    [supported by the filter][Unified Matcher: Filter Specifications]. Must have
+    return type compatible with the `matcher`.
 -   `tree_type`: One of the following must be present and valid:
     -   [`exact_match_map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L114):
         A
@@ -870,8 +883,10 @@ message:
             Must contain at least 1 pair.
     -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L120):
         A valid [`TypedExtensionConfig`] containing one of the custom matcher
-        extensions supported by the filter. Must have input type compatible with
-        the `input`. Must return a boolean indicating the status of the match.
+        extensions
+        [supported by the filter][Unified Matcher: Filter Specifications]. Must
+        have input type compatible with the `input`. Must return a boolean
+        indicating the status of the match.
 
 ##### Unified Matcher Inputs
 
