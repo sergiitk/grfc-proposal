@@ -62,10 +62,12 @@ which are covered in the proposal:
 
 [RateLimitQuotaFilterConfig]: #ratelimitquotafilterconfig
 [RateLimitQuotaOverride]: #ratelimitquotaoverride
-[Config: `RuntimeFractionalPercent`]: #config-runtimefractionalpercent
-[Config: `HeaderValueOption`]: #config-headervalueoption
 [Config: Bucket Matchers]: #config-bucket-matchers
 [Config: `RateLimitQuotaBucketSettings`]: #config-ratelimitquotabucketsettings
+[Config: `RateLimitStrategy`]: #config-ratelimitstrategy
+[Config: `TokenBucket`]: #config-tokenbucket
+[Config: `HeaderValueOption`]: #config-headervalueoption
+[Config: `RuntimeFractionalPercent`]: #config-runtimefractionalpercent
 
 [RLQS xDS HTTP Filter: Channel Level]: #rlqs-xds-http-filter-channel-level
 [RLQS Buckets and Multithreading]: #rlqs-buckets-and-multithreading
@@ -95,8 +97,11 @@ which are covered in the proposal:
 
 [TokenBucket]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto
 [GrpcService.GoogleGrpc]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/grpc_service.proto#L68
-[`google.protobuf.Duration`]: https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration
 [`TypedExtensionConfig`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/core/v3/extension.proto#L14
+
+[`google.rpc.Status`]: https://github.com/googleapis/googleapis/blob/7a87bf05880470b360f42e2b7f9ff5b28fa6cbe0/google/rpc/status.proto
+[gRPC Status Codes]: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+[`google.protobuf.Duration`]: https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration
 
 [rlqs_proto]: https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto
 
@@ -206,6 +211,99 @@ The following fields will be ignored by gRPC:
 
 -   `append`: Deprecated in favor of `append_action`.
 
+#### Config: `RateLimitQuotaBucketSettings`
+
+We will support the following fields in the
+[`RateLimitQuotaBucketSettings`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L169)
+message:
+
+-   [`bucket_id_builder`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L348):
+    If present, must be a valid `BucketIdBuilder` message. This is used to
+    construct a `BucketId` for each request, which may involve dynamic values
+    from request metadata. If not set, requests are not reported to the RLQS
+    server and are handled according to `no_assignment_behavior`.
+    -   `bucket_id_builder`: A map from string to
+        [`ValueBuilder`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L265).
+        Must contain at least one entry. In addition to the specification, gRPC
+        will restrict the total number of key-value pairs to 30.
+        -   `ValueBuilder` can be a static
+            [`string_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L272)
+            or a dynamic
+            [`custom_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L276).
+            For `custom_value`, we support [`TypedExtensionConfig`] containing
+            [Unified Matcher: `HttpRequestHeaderMatchInput`].
+-   [`reporting_interval`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L398):
+    Must be present. A [`google.protobuf.Duration`] specifying the interval for
+    reporting quota usage. Must be greater than 100ms. Note that gRPC will apply
+    a best-effort approach to report at the configured interval, and may report
+    earlier or later in certain situations. See [On Report Timers] for details.
+-   [`deny_response_settings`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L407):
+    If not set, RPCs will be denied as specified in the default value of
+    `grpc_status`. If present, must be a valid
+    [`DenyResponseSettings`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L227)
+    message:
+    -   `grpc_status`: A [`google.rpc.Status`] for
+        [gRPC responses][gRPC Status Codes]. Defaults to `UNAVAILABLE`.
+    -   `response_headers_to_add`: A list of up to 10
+        [Config: `HeaderValueOption`] to add to the deny response.
+-   [`no_assignment_behavior`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L413):
+    If not set, all requests are allowed. If set, must be a valid
+    [`NoAssignmentBehavior`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L172)
+    message.
+    -   `fallback_rate_limit`: Must be present and valid
+        [Config: `RateLimitStrategy`] to apply.
+-   [`expired_assignment_behavior`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L422):
+    Specifies behavior when a quota assignment expires and cannot be refreshed.
+    If not set, the bucket is abandoned when its quota expires.
+    -   [`expired_assignment_behavior_timeout`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L206):
+        A [`google.protobuf.Duration`] that limits how long this behavior is
+        applied. Must be a positive duration if set. If not set, it defaults to
+        zero and the bucket is abandoned immediately.
+    -   One of the following must be set:
+        -   [`fallback_rate_limit`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L216):
+            A [Config: `RateLimitStrategy`] to apply.
+        -   [`reuse_last_assignment`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/extensions/filters/http/rate_limit_quota/v3/rate_limit_quota.proto#L222):
+            Reuses the rate limit strategy specified in the last known quota
+            assignment, effectively extending it by
+            `expired_assignment_behavior_timeout`. If a quota has never been
+            assigned to te bucket, the bucket is abandoned immediately.
+
+The following fields will be ignored by gRPC:
+
+-   `DenyResponseSettings.http_status`
+-   `DenyResponseSettings.http_body`
+
+#### Config: `RateLimitStrategy`
+
+We will support the following fields in the
+[`RateLimitStrategy`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L20)
+message:
+
+-   `strategy`: One of the following must be present:
+    -   [`blanket_rule`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L31):
+        An enum that can be `ALLOW_ALL` or `DENY_ALL`.
+    -   [`token_bucket`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L37):
+        A [Config: `TokenBucket`] strategy.
+
+The following fields will be ignored by gRPC:
+
+-   `requests_per_time_unit`: Deprecated in favor of `token_bucket`.
+
+#### Config: `TokenBucket`
+
+We will support the following fields in the
+[`TokenBucket`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L19)
+message:
+
+-   [`max_tokens`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L24):
+    Must be present and greater than 0. The maximum number of tokens that the
+    bucket can hold.
+-   [`tokens_per_fill`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L30):
+    The number of tokens added to the bucket during each fill interval. Must be
+    greater than 0. Defaults to 1.
+-   [`fill_interval`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/token_bucket.proto#L36):
+    Must be present. The interval at which tokens are added to the bucket.
+
 #### Config: Bucket Matchers
 
 RPCs are matched into buckets using the [Unified Matcher API] — an adaptable
@@ -238,47 +336,6 @@ Filter-specific Unified Matcher configuration per
 
 Any other types are considered invalid and will result in gRPC NACKing the xDS
 resource.
-
-#### Config: `RateLimitQuotaBucketSettings`
-
-The `RateLimitQuotaBucketSettings` message configures the behavior of a bucket.
-We will support the following fields:
-
--   `bucket_id_builder`: Used to construct the `BucketId` for each request. If
-    not set, requests are not assigned to a bucket, not reported to the RLQS
-    server, and are handled by `no_assignment_behavior`.
-    -   `bucket_id_builder`: A map from string to `ValueBuilder`.
-        -   `ValueBuilder`: One of the following must be set:
-            -   `string_value`: A static string value.
-            -   `custom_value`: A [`TypedExtensionConfig`] that resolves to a
-                string. The supported extensions are the same as for matcher
-                inputs.
--   `reporting_interval`: Must be present. The interval at which the client
-    reports usage to the RLQS server. Must be greater than 100ms.
--   `deny_response_settings`: Customizes the response for denied requests.
-    -   `http_status`: HTTP status code for denied HTTP requests. Defaults to
-        1.  gRPC requests are not affected.
-    -   `http_body`: HTTP response body for denied HTTP requests. gRPC requests
-        are not affected.
-    -   `grpc_status`: `google.rpc.Status` for denied gRPC requests. Defaults to
-        `UNAVAILABLE`.
-    -   `response_headers_to_add`: A list of up to 10 headers to add to the deny
-        response, as described in [Config: `HeaderValueOption`].
--   `no_assignment_behavior`: Behavior before the first quota assignment is
-    received. If not set, all requests are allowed.
-    -   `fallback_rate_limit`: A
-        [`RateLimitStrategy`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/ratelimit_strategy.proto#L16)
-        to apply.
-        -   `blanket_rule`: One of `ALLOW_ALL` or `DENY_ALL`.
-        -   `requests_per_time_unit`: A token bucket-style rate limit.
--   `expired_assignment_behavior`: Behavior when a quota assignment expires and
-    cannot be refreshed. If not set, the bucket is abandoned.
-    -   `expired_assignment_behavior_timeout`: How long to apply the expired
-        assignment behavior before abandoning the bucket. Defaults to 0 (abandon
-        immediately).
-    -   One of the following must be set:
-        -   `fallback_rate_limit`: A `RateLimitStrategy` to apply.
-        -   `reuse_last_assignment`: Reuse the last known quota assignment.
 
 ### RLQS Components
 
@@ -829,7 +886,7 @@ message:
                         compatible with `input` that returns a string.
                     -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L60):
                         A valid [`TypedExtensionConfig`] containing one of the
-                        custom matcher extensions
+                        matching extensions
                         [supported by the filter][Unified Matcher: Filter Specifications].
                         Must have input type compatible with the `input`. Must
                         return a boolean indicating the status of the match.
@@ -882,7 +939,7 @@ message:
             A map from a string to a valid [Unified Matcher: `OnMatch`] message.
             Must contain at least 1 pair.
     -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L120):
-        A valid [`TypedExtensionConfig`] containing one of the custom matcher
+        A valid [`TypedExtensionConfig`] containing one of the matching
         extensions
         [supported by the filter][Unified Matcher: Filter Specifications]. Must
         have input type compatible with the `input`. Must return a boolean
