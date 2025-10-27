@@ -151,64 +151,38 @@ message:
     [Config: Bucket Matchers], and fully overrides the matchers provided on the
     less specific definition.
 
-#### Config: `RuntimeFractionalPercent`
+#### Config: Bucket Matchers
 
-We will support the following fields in the
-[RuntimeFractionalPercent](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L643)
-proto:
+RPCs are matched into buckets using the [Unified Matcher API] — an adaptable
+framework for xDS components requiring matching features. For details on general
+Unified Matcher proto parsing and validation, see [Unified Matcher API Support].
 
--   [`default_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L648):
-    This field must be present. If the denominator specified is less than the
-    numerator, the final fractional percentage is capped at 1 (100%). The
-    fraction specified with:
-    -   [`numerator`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L52):
-        Non-negative integer, 0 by default.
-    -   [`denominator`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L56):
-        Must be one of the
-        [`DenominatorType`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L34)
-        values:
-        -   `HUNDRED` (default)
-        -   `TEN_THOUSAND`
-        -   `MILLION`
--   All other fields are ignored.
+The `bucket_matchers` field in the filter config will contain a Unified Matcher
+restricted to the protocol-specific types, packed as a [`TypedExtensionConfig`].
 
-The following fields will be ignored by gRPC:
+Evaluating the tree against RPC metadata yields
+[Config: `RateLimitQuotaBucketSettings`], which contains the information needed
+to associate the RPC with `bucket_id` and the default rate limiting
+configuration.
 
-- `runtime_key`: gRPC does not have Envoy's concept of runtime settings.
+Filter-specific Unified Matcher configuration per
+[Unified Matcher: Filter Integration]:
 
-#### Config: `HeaderValueOption`
+-   Supported protocol-specific actions:
+    1.  [Config: `RateLimitQuotaBucketSettings`].
+-   Supported [Unified Matcher: Input Extensions]:
+    1.  [Unified Matcher: `HttpRequestHeaderMatchInput`].
+    2.  [Unified Matcher: `HttpAttributesCelMatchInput`].
+-   Supported [Unified Matcher: Matching Extensions].
+    1.  [Unified Matcher: `StringMatcher`], input effectively restricted to
+        `HttpRequestHeaderMatchInput`.
+    1.  [Unified Matcher: `CelMatcher`], input effectively restricted to
+        `HttpAttributesCelMatchInput`.
+-   Filter-specific default no-match behavior:
+    -   The RPC is allowed by default and not reported to the RLQS server.
 
-We will support the following fields in the
-[`HeaderValueOption`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L429)
-proto:
-
--   [`header`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L458):
-    Must be present.
-    -   [`key`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L404):
-        Value length must be in the range `[1, 16384)`. Must be a valid HTTP/2
-        header name.
-    -   [`value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L415):
-        Specifies the header value. Must be shorter than 16384 bytes. Must be a
-        valid HTTP/2 header value. Not used if `key` ends in `-bin` and
-        `raw_value` is set.
-    -   [`raw_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L422):
-        Used only if `key` ends in `-bin`. Must be shorter than 16384 bytes.
-        Will be base64-encoded on the wire, unless the pure binary metadata
-        extension from [gRFC G1: True Binary Metadata][G1] is used.
--   [`append_action`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L476):
-    Must be of the
-    [`HeaderAppendAction`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L434)
-    values:
-    -   `APPEND_IF_EXISTS_OR_ADD` (default)
-    -   `ADD_IF_ABSENT`
-    -   `OVERWRITE_IF_EXISTS_OR_ADD`
-    -   `OVERWRITE_IF_EXISTS`
--   [`keep_empty_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L480)
--   All other fields are ignored.
-
-The following fields will be ignored by gRPC:
-
--   `append`: Deprecated in favor of `append_action`.
+Any other types are considered invalid and will result in gRPC NACKing the xDS
+resource.
 
 #### Config: `RateLimitQuotaBucketSettings`
 
@@ -311,38 +285,64 @@ message:
             In addition to the specification, gRPC will reject values less than
             100ms second.
 
-#### Config: Bucket Matchers
+#### Config: `HeaderValueOption`
 
-RPCs are matched into buckets using the [Unified Matcher API] — an adaptable
-framework for xDS components requiring matching features. For details on general
-Unified Matcher proto parsing and validation, see [Unified Matcher API Support].
+We will support the following fields in the
+[`HeaderValueOption`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L429)
+proto:
 
-The `bucket_matchers` field in the filter config will contain a Unified Matcher
-restricted to the protocol-specific types, packed as a [`TypedExtensionConfig`].
+-   [`header`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L458):
+    Must be present.
+    -   [`key`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L404):
+        Value length must be in the range `[1, 16384)`. Must be a valid HTTP/2
+        header name.
+    -   [`value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L415):
+        Specifies the header value. Must be shorter than 16384 bytes. Must be a
+        valid HTTP/2 header value. Not used if `key` ends in `-bin` and
+        `raw_value` is set.
+    -   [`raw_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L422):
+        Used only if `key` ends in `-bin`. Must be shorter than 16384 bytes.
+        Will be base64-encoded on the wire, unless the pure binary metadata
+        extension from [gRFC G1: True Binary Metadata][G1] is used.
+-   [`append_action`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L476):
+    Must be of the
+    [`HeaderAppendAction`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L434)
+    values:
+    -   `APPEND_IF_EXISTS_OR_ADD` (default)
+    -   `ADD_IF_ABSENT`
+    -   `OVERWRITE_IF_EXISTS_OR_ADD`
+    -   `OVERWRITE_IF_EXISTS`
+-   [`keep_empty_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L480)
+-   All other fields are ignored.
 
-Evaluating the tree against RPC metadata yields
-[Config: `RateLimitQuotaBucketSettings`], which contains the information needed
-to associate the RPC with `bucket_id` and the default rate limiting
-configuration.
+The following fields will be ignored by gRPC:
 
-Filter-specific Unified Matcher configuration per
-[Unified Matcher: Filter Integration]:
+-   `append`: Deprecated in favor of `append_action`.
 
--   Supported protocol-specific actions:
-    1.  [Config: `RateLimitQuotaBucketSettings`].
--   Supported [Unified Matcher: Input Extensions]:
-    1.  [Unified Matcher: `HttpRequestHeaderMatchInput`].
-    2.  [Unified Matcher: `HttpAttributesCelMatchInput`].
--   Supported [Unified Matcher: Matching Extensions].
-    1.  [Unified Matcher: `StringMatcher`], input effectively restricted to
-        `HttpRequestHeaderMatchInput`.
-    1.  [Unified Matcher: `CelMatcher`], input effectively restricted to
-        `HttpAttributesCelMatchInput`.
--   Filter-specific default no-match behavior:
-    -   The RPC is allowed by default and not reported to the RLQS server.
+#### Config: `RuntimeFractionalPercent`
 
-Any other types are considered invalid and will result in gRPC NACKing the xDS
-resource.
+We will support the following fields in the
+[RuntimeFractionalPercent](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L643)
+proto:
+
+-   [`default_value`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/config/core/v3/base.proto#L648):
+    This field must be present. If the denominator specified is less than the
+    numerator, the final fractional percentage is capped at 1 (100%). The
+    fraction specified with:
+    -   [`numerator`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L52):
+        Non-negative integer, 0 by default.
+    -   [`denominator`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L56):
+        Must be one of the
+        [`DenominatorType`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/v3/percent.proto#L34)
+        values:
+        -   `HUNDRED` (default)
+        -   `TEN_THOUSAND`
+        -   `MILLION`
+-   All other fields are ignored.
+
+The following fields will be ignored by gRPC:
+
+- `runtime_key`: gRPC does not have Envoy's concept of runtime settings.
 
 ### RLQS Components
 
@@ -351,7 +351,6 @@ resource.
 The diagram below shows the conceptual components of the RLQS Filter. Note that
 the actual implementation may vary depending on the language.
 
-<!-- disableFinding(SNIPPET_INVALID_LANGUAGE) -->
 ```mermaid
 ---
 config:
