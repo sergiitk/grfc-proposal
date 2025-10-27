@@ -74,14 +74,11 @@ which are covered in the proposal:
 [Unified Matcher: `Matcher`]: #unified-matcher-matcher
 [Unified Matcher: `OnMatch`]: #unified-matcher-onmatch
 [Unified Matcher: `MatcherList`]: #unified-matcher-matcherlist
-[Unified Matcher: `MatcherList.Predicate`]: #unified-matcher-matcherlistpredicate
-[Unified Matcher: `MatcherList.Predicate.SinglePredicate`]: #unified-matcher-matcherlistpredicatesinglepredicate
-[Unified Matcher: `MatcherList.Predicate.PredicateList`]: #unified-matcher-matcherlistpredicatepredicatelist
 [Unified Matcher: `MatcherTree`]: #unified-matcher-matchertree
-[Unified Matcher: `MatcherTree.MatchMap`]: #unified-matcher-matchertreematchmap
-[Unified Matcher Extension: `HttpRequestHeaderMatchInput`]: #unified-matcher-extension-httprequestheadermatchinput
-[Unified Matcher Extension: `HttpAttributesCelMatchInput`]: #unified-matcher-extension-httpattributescelmatchinput
-[Unified Matcher Extension: `CelMatcher`]: #unified-matcher-extension-celmatcher
+[Unified Matcher: `HttpRequestHeaderMatchInput`]: #unified-matcher-httprequestheadermatchinput
+[Unified Matcher: `HttpAttributesCelMatchInput`]: #unified-matcher-httpattributescelmatchinput
+[Unified Matcher: `StringMatcher`]: #unified-matcher-stringmatcher
+[Unified Matcher: `CelMatcher`]: #unified-matcher-celmatcher
 
 [On Data Plane RPC]: #on-data-plane-rpc
 [On RLQS Server Response]: #on-rlqs-server-response
@@ -215,9 +212,9 @@ Unified Matcher restricted to the following protocol-specific types, packed as a
 [`TypedExtensionConfig`]:
 
 1.  Input specification (`input` fields):
-    [Unified Matcher Extension: `HttpAttributesCelMatchInput`].
+    [Unified Matcher: `HttpAttributesCelMatchInput`].
 2.  Custom matching logic (`custom_match` fields):
-    [Unified Matcher Extension: `CelMatcher`].
+    [Unified Matcher: `CelMatcher`].
 3.  Protocol-specific action (`OnMatch.action` field):
     [Config: `RateLimitQuotaBucketSettings`].
 
@@ -241,7 +238,7 @@ We will support the following fields:
     -   `bucket_id_builder`: A map from string to `ValueBuilder`.
         -   `ValueBuilder`: One of the following must be set:
             -   `string_value`: A static string value.
-            -   `custom_value`: A `TypedExtensionConfig` that resolves to a
+            -   `custom_value`: A [`TypedExtensionConfig`] that resolves to a
                 string. The supported extensions are the same as for matcher
                 inputs.
 -   `reporting_interval`: Must be present. The interval at which the client
@@ -746,10 +743,11 @@ When implementing Unified Matcher API, a filter must define the following:
 In this iteration the following Unified Mather extensions will be supported:
 
 1.  Inputs:
-    1. [Unified Matcher Extension: `HttpRequestHeaderMatchInput`]
-    2. [Unified Matcher Extension: `HttpAttributesCelMatchInput`]
-2. Custom Matchers:
-    1. [Unified Matcher Extension: `CelMatcher`]
+    1.  [Unified Matcher: `HttpRequestHeaderMatchInput`]
+    2.  [Unified Matcher: `HttpAttributesCelMatchInput`]
+2.  Matchers:
+    1.  [Unified Matcher: `StringMatcher`] (standard matcher)
+    1.  [Unified Matcher: `CelMatcher`]
 
 ##### Unified Matcher: `Matcher`
 
@@ -775,7 +773,7 @@ message:
 
 -   `on_match`: One of the following must be present and valid:
     -   [`matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L33):
-        A nested [Unified Matcher: `OnMatch`] for more complex, tree-like
+        A nested [Unified Matcher: `Matcher`] for more complex, tree-like
         matching logic.
     -   [`action`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L36):
         A [`TypedExtensionConfig`] containing a protocol-specific action to
@@ -795,16 +793,30 @@ message:
 -   [`matchers`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L96):
     A list of
     [`Matcher.MatcherList.FieldMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L87)
-    messages. Must contain at least 1 item. If `min_items` is violated, or any
-    of the fields are invalid, the xDS resource will be NACKed.
+    messages. Must contain at least 1 item.
     -   [`predicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L89):
         Must be set and contain a valid
         [`Matcher.MatcherList.Predicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L45)
         message.
         -   `match_type`: One of the following must be present and valid:
             -   [`single_predicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L73):
-                A Unified Matcher: `MatcherList.Predicate.SinglePredicate`
-                message.
+                A
+                [`Matcher.MatcherList.Predicate.SinglePredicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L47)
+                message. The return type of the input must match the input type
+                of the matcher.
+                -   [`input`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L50):
+                    A valid [`TypedExtensionConfig`]. Must be present and
+                    contain one of the input extensions supported by the filter.
+                    Must have return type compatible with the `matcher`.
+                -   `matcher`: One of the following must be present and valid:
+                    -   [`value_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L56):
+                        A valid [Unified Matcher: `StringMatcher`]. Only
+                        compatible with `input` that returns a string.
+                    -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L60):
+                        A valid [`TypedExtensionConfig`] containing one of the
+                        custom matcher extensions supported by the filter. Must
+                        have input type compatible with the `input`. Must return
+                        a boolean indicating the status of the match.
             -   [`or_matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L76):
                 A
                 [`Matcher.MatcherList.Predicate.PredicateList`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L65)
@@ -822,79 +834,63 @@ message:
                     contain at least 2 items. Returns true if all of them are
                     true.
             -   [`not_matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L82):
-                A nested `Matcher.MatcherList.Predicate` message.
+                A nested `Matcher.MatcherList.Predicate` message. Returns the
+                inverted result of predicate evaluation.
     -   [`on_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L92):
         Must be set and contain a valid [Unified Matcher: `OnMatch`] message.
 
-##### Unified Matcher: `MatcherList.Predicate.SinglePredicate`
-
-We will support the following fields in the [`SinglePredicate`](#unified-matcher-matcherlistpredicatesinglepredicate)
-[`Matcher.MatcherList.Predicate.SinglePredicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L47)
-message:
-
--   [`input`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L50):
-    A `core.v3.TypedExtensionConfig`. Must be present. If not present, the xDS
-    resource will be NACKed.
--   `matcher`: Oneof field. Must be present. If not present, the xDS
-    resource will be NACKed.
-    -   [`value_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L56):
-        A `type.matcher.v3.StringMatcher`.
-    -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L60):
-        A `core.v3.TypedExtensionConfig`.
-
-##### Unified Matcher: `MatcherList.Predicate.PredicateList`
-
-We will support the following fields in the [`PredicateList`](#unified-matcher-matcherlistpredicatepredicatelist)
-[`Matcher.MatcherList.Predicate.PredicateList`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L65)
-message:
-
--   [`predicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L66):
-    A repeated list of `Predicate` messages. Must contain at least 2 items.
-    If `min_items` is violated, the xDS resource will be NACKed.
-
 ##### Unified Matcher: `MatcherTree`
 
-We will support the following fields in the [`MatcherTree`](#unified-matcher-matchertree)
-[`Matcher.MatcherTree`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L99)
+We will support the following fields in the
+[`xds.type.matcher.v3.Matcher.MatcherTree`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L99)
 message:
 
 -   [`input`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L106):
-    A `core.v3.TypedExtensionConfig`. Must be present. If not present, the xDS
-    resource will be NACKed.
--   `tree_type`: Oneof field. Must be present. If not present, the xDS
-    resource will be NACKed.
+    A valid [`TypedExtensionConfig`]. Must be present and contain one of the
+    input extensions supported by the filter. Must have return type compatible
+    with the `matcher`.
+-   `tree_type`: One of the following must be present and valid:
     -   [`exact_match_map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L114):
-        A `MatchMap` message.
+        A
+        [`Matcher.MatcherTree.MatchMap`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L101)
+        message. Only compatible with `input` that returns a string.
+        -   [`map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L102):
+            A map from string to `OnMatch` messages. Must contain at least 1
+            pair.
     -   [`prefix_match_map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L117):
-        A `MatchMap` message.
+        A
+        [`Matcher.MatcherTree.MatchMap`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L101)
+        message. Only compatible with `input` that returns a string.
+        -   [`map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L102):
+            A map from string to `OnMatch` messages. Must contain at least 1
+            pair.
     -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L120):
-        A `core.v3.TypedExtensionConfig`.
+        A valid [`TypedExtensionConfig`] containing one of the custom matcher
+        extensions supported by the filter. Must have input type compatible with
+        the `input`. Must return a boolean indicating the status of the match.
 
-##### Unified Matcher: `MatcherTree.MatchMap`
+##### Unified Matcher Inputs
 
-We will support the following fields in the [`MatchMap`](#unified-matcher-matchertreematchmap)
-[`Matcher.MatcherTree.MatchMap`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L101)
-message:
+###### Unified Matcher: `HttpRequestHeaderMatchInput`
 
--   [`map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L102):
-    A map from string to `OnMatch` messages. Must contain at least 1 pair.
-    If `min_pairs` is violated, the xDS resource will be NACKed.
-
-##### Unified Matcher Extension: `HttpRequestHeaderMatchInput`
-
-* [`xds.type.matcher.v3.HttpAttributesCelMatchInput`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/http_inputs.proto#L22)
 * [`HttpRequestHeaderMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/matcher/v3/http_inputs.proto#type-matcher-v3-httprequestheadermatchinput)
 
 TODO(sergiitk): finish
 
-##### Unified Matcher Extension: `HttpAttributesCelMatchInput`
+###### Unified Matcher: `HttpAttributesCelMatchInput`
 
 * [`xds.type.matcher.v3.HttpAttributesCelMatchInput`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/http_inputs.proto#L22)
 * [`HttpAttributesCelMatchInput`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/http_inputs.proto#envoy-v3-api-msg-xds-type-matcher-v3-httpattributescelmatchinput)
 
 TODO(sergiitk): finish
 
-##### Unified Matcher Extension: `CelMatcher`
+##### Unified Matcher Matchers
+
+##### Unified Matcher: `StringMatcher`
+
+TODO(sergiitk): finish
+
+##### Unified Matcher: `CelMatcher`
 
 * [`xds.type.matcher.v3.CelMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L30)
 * [`CelMatcher`](https://www.envoyproxy.io/docs/envoy/latest/xds/type/matcher/v3/cel.proto.html)
