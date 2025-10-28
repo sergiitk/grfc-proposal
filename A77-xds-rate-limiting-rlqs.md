@@ -522,12 +522,8 @@ RLQS Filter State object will include the following data members:
 -   RLQS Client: Accessed when we get the first data plane RPC for a given
     bucket and when a report timer fires. Notifies RLQS Filter State of
     responses received from the RLQS server.
--   Report Timers Map: Initialized at instantiation. Used to track discovered
-    reporting intervals and their execution handlers.
-    -   Entries inserted we get the first data plane RPC for a given bucket and
-        there's no key for bucket reporting interval.
-    -   Entries deleted when there's no more buckets with given reporting
-        interval in RLQS Bucket Map.
+-   Report Timers: Initialized at instantiation. Used to schedule periodic
+    bucket usage reports to the RLQS server. See [On Report Timers] for details.
 
 Pseudo-code for RLQS Filter State RPC rate limiting:
 
@@ -689,6 +685,8 @@ counter.
 
 #### On RLQS Server Response
 
+TODO(sergiitk): Add detailed response parsing and validation
+
 When receiving an RLQS Server Response, the RLQS Client passes parsed response
 to the RLQS Filter State. The RLQS Filter State iterates through the bucket
 assignments in the response, and updates the corresponding buckets in the RLQS
@@ -704,6 +702,13 @@ Buckets marked to be abandoned are purged from the cache as described in
 [`RateLimitQuotaResponse.AbandonAction`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/service/rate_limit_quota/v3/rlqs.proto#L169-L199).
 
 #### On Report Timers
+
+-   TODO(sergiitk): implementation-focused description so that other impl
+    approaches allowed
+-   TODO(sergiitk): add details on scalability requirements
+-   TODO(sergiitk): Are there requirements in terms of when exactly we
+    reschedule the timer, and how that interacts with flow control on the RLQS
+    stream?
 
 When a report timer fires, the RLQS Filter State retrieves all buckets with the
 corresponding reporting interval from the RLQS Bucket Map. For each bucket, the
@@ -834,8 +839,9 @@ When implementing Unified Matcher API, a filter must define the following:
 
 ##### Unified Matcher: `Matcher`
 
-Unified Matcher API allows to build matcher trees of unrestricted depth. gRPC
-will reject any matcher definition with 
+While the Unified Matcher API allows for matcher trees of arbitrary depth, gRPC
+will reject any matcher definition with a tree depth greater than 100, NACKing
+the xDS resource.
 
 We will support the following fields in the
 [`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L22)
