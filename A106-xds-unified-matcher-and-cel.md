@@ -192,8 +192,7 @@ message:
                         ([`TypedExtensionConfig`]): Must contain one of the
                         matching extensions
                         [supported by the filter][Unified Matcher: Filter Integration].
-                        Must have input type compatible with the `input`. Must
-                        return a boolean indicating the status of the match.
+                        Must be compatible with the return type of the `input`.
             -   [`or_matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L76)
                 ([`Matcher.MatcherList.Predicate.PredicateList`]):
                 -   [`predicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L66)
@@ -212,6 +211,8 @@ message:
 
 #### Unified Matcher: `MatcherTree`
 
+[`Matcher.MatcherTree.MatchMap`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L101
+
 We will support the following fields in the
 [`xds.type.matcher.v3.Matcher.MatcherTree`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L99)
 message:
@@ -220,25 +221,27 @@ message:
     ([`TypedExtensionConfig`]): Must be present and contain one of the input
     extensions
     [supported by the filter][Unified Matcher: Filter Integration]. Must have
-    return type compatible with the `matcher`.
+    return type compatible with each matcher specified in the tree.
 -   `tree_type`: One of the following must be present:
     -   [`exact_match_map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L114)
         ([`Matcher.MatcherTree.MatchMap`]): Only compatible with `input` that
-        returns a string.
+        returns a `string`.
         -   [`map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L102)
-            (map<string, [Unified Matcher: `OnMatch`]>): Must contain at least 1
-            pair.
+            A map from a `string` to [Unified Matcher: `OnMatch`]. Must contain
+            at least 1 pair.
     -   [`prefix_match_map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L117)
         ([`Matcher.MatcherTree.MatchMap`]): Only compatible with `input` that
-        returns a string.
+        returns a `string`.
         -   [`map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L102)
-            (map<string, [Unified Matcher: `OnMatch`]>): Must contain at least 1
-            pair.
+            A map from a `string` to [Unified Matcher: `OnMatch`]. Must contain
+            at least 1 pair.
     -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L120)
         ([`TypedExtensionConfig`]): Must contain one of the matching extensions
-        [supported by the filter][Unified Matcher: Filter Integration]. Must
-        have input type compatible with the `input`. Must return a boolean
-        indicating the status of the match.
+        [supported by the filter][Unified Matcher: Filter Integration]. Must be
+        compatible with the return type of the `input`.
+
+> [!WARNING] TODO(sergiitk): MatcherTree.custom_match
+> check what actually goes into `custom_match` for `MatcherTree`
 
 #### Unified Matcher: Input Extensions
 
@@ -267,6 +270,9 @@ message:
 -   no fields.
 
 #### Unified Matcher: Matching Extensions
+
+Matching extensions must return a boolean that indicates the status of the
+match.
 
 ##### Unified Matcher: `StringMatcher`
 
