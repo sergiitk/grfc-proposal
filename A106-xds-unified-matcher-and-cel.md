@@ -90,15 +90,10 @@ Envoy provides two syntactically equivalent Unified Matcher definitions:
 [`envoy.config.common.matcher.v3.Matcher`](https://github.com/envoyproxy/envoy/blob/e3da7ebb16ad01c2ac7662758a75dba5cdc024ce/api/envoy/config/common/matcher/v3/matcher.proto)
 and
 [`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto),
-which is the preferred version for all new APIs using Unified Matcher.
+which is the preferred version for all new APIs using Unified Matcher. We will
+produce the same form for either one.
 
-Will produce the same form for either one.
-
- <!-- If
-`envoy.config.common.matcher.v3.Matcher` is provided, we will interpret it as is
-`xds.type.matcher.v3.Matcher`. -->
-
-In this iteration the following Unified Mather extensions will be supported:
+In this iteration, the following Unified Mather extensions will be supported:
 
 1.  Inputs:
     1.  [Unified Matcher: `HttpRequestHeaderMatchInput`]
