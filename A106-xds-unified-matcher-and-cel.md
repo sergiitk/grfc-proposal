@@ -4,9 +4,8 @@ A106: xDS Unified Matcher and CEL Integration
 *   Author(s): Sergii Tkachenko (@sergiitk)
 *   Approver: Mark Roth (@markdroth)
 *   Status: In Review
-*   Last updated: 2025-11-03
-*   Discussion at:
-    -   [ ] TODO(sergiitk): insert google group thread
+*   Last updated: 2025-11-15
+*   Discussion at: TODO(sergiitk): insert google group thread
 
 ## Abstract
 
@@ -52,7 +51,6 @@ request matching based on a wide range of request attributes.
 [A103]: https://github.com/grpc/proposal/pull/511
 
 [Unified Matcher API]: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/matching/matching_api.html
-[Unified Matcher API Support]: #unified-matcher-api-support
 [Unified Matcher: Filter Integration]: #unified-matcher-filter-integration
 [Unified Matcher: Input Extensions]: #unified-matcher-input-extensions
 [Unified Matcher: Matching Extensions]: #unified-matcher-matching-extensions
@@ -68,12 +66,13 @@ request matching based on a wide range of request attributes.
 [Common Expression Language]: https://cel.dev
 [`cel.expr.CheckedExpr`]: https://github.com/google/cel-spec/blob/master/proto/cel/expr/checked.proto
 
-
 [CEL Integration]: #cel-integration
 [`CelExpression` message]: #celexpression-message
 [CEL Runtime Restrictions]: #cel-runtime-restrictions
+[Supported CEL Functions]: #supported-cel-functions
 [Supported CEL Variables]: #supported-cel-variables
 
+[`StringValue`]: https://protobuf.dev/reference/protobuf/google.protobuf/#string-value
 [`TypedExtensionConfig`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/core/v3/extension.proto#L14
 
 ## Proposal
@@ -316,6 +315,11 @@ message:
 
 -   [`expr_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L32)
     ([`xds.type.v3.CelExpression`][`CelExpression` message]): Must be present.
+    This message will be converted into a native CEL Abstract Syntax Tree (AST)
+    using the language-specific CEL library. The AST's output (return) type must
+    be boolean. The resulting CEL program must also be validated to conform to
+    [CEL Runtime Restrictions] and only contain [Supported CEL Variables]. If
+    the conversion or the validation step fail, gRPC will NACK the xDS resource.
 -   [`description`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L36):
     An optional string. May be ignored or used for testing/debugging.
 
@@ -345,18 +349,35 @@ message:
 -   ([`xds.type.v3.CelExpression`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L26)):
     Must be present.
     -   [`cel_expr_checked`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L49)
-        ([`cel.expr.CheckedExpr`]): Must be present. This message will be
-        converted into a native CEL Abstract Syntax Tree (AST) using the
-        language-specific CEL library. The AST's output (return) type must be
-        boolean. The resulting CEL program must also be validated to conform to
-        [CEL Runtime Restrictions]. If the conversion or the validation step
-        fail, gRPC will NACK the xDS resource.
+        ([`cel.expr.CheckedExpr`]): Must be present.
 
 The following fields will be ignored by gRPC:
 
 -   `parsed_expr` - deprecated, only Canonical CEL is supported.
 -   `checked_expr` - deprecated, only Canonical CEL is supported.
 -   `cel_expr_parsed` - only Checked CEL expressions are supported.
+
+#### `CelExtractString` message
+
+`CelExtractString` is a small tool that allows to extract a string from
+[Supported CEL Variables] using a CEL expression. The expression must evaluate
+to a `string`.
+
+We will support the following fields in the
+[`xds.type.matcher.v3.CelExtractString`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L62)
+message:
+
+-   [`expr_extract`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#65)
+    ([`xds.type.v3.CelExpression`][`CelExpression` message]): Must be present.
+    This message will be converted into a native CEL Abstract Syntax Tree (AST)
+    using the language-specific CEL library. The AST's output (return) type must
+    be a `string`. It may only contain [Supported CEL Functions] and
+    [Supported CEL Variables]. The resulting CEL program must also be validated
+    to conform to [CEL Runtime Restrictions]. If the conversion or the
+    validation step fail, gRPC will NACK the xDS resource.
+-   [`default_value`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L69):
+    ([`StringValue`]) Optional. If set, and the CEL expression evaluates to an
+    error or a non-string type, this default value will be returned instead.
 
 #### CEL Runtime Restrictions
 
@@ -465,5 +486,5 @@ that depend on it (e.g., `GRPC_EXPERIMENTAL_XDS_ENABLE_RLQS` for RLQS).
 Will be implemented in C-core, Java, Go, and Node as part of either RLQS
 ([A77]) or Composite Filter ([A103]), whichever happens to be implemented first
 in any given language. Role Based Access Control (RBAC, [A41]) currently does
-not support the Unified Matcher API in gRPC, though it is supported by Envoy.
-This may be extended in the future.
+not support the Unified Matcher API in gRPC, though it is supported by Envoy,
+but it may be added in the future.
