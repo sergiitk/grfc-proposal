@@ -67,7 +67,10 @@ request matching based on a wide range of request attributes.
 
 [Common Expression Language]: https://cel.dev
 [`cel.expr.CheckedExpr`]: https://github.com/google/cel-spec/blob/master/proto/cel/expr/checked.proto
+
+
 [CEL Integration]: #cel-integration
+[`CelExpression` message]: #celexpression-message
 [CEL Runtime Restrictions]: #cel-runtime-restrictions
 [Supported CEL Variables]: #supported-cel-variables
 
@@ -312,33 +315,48 @@ We will support the following fields in the
 message:
 
 -   [`expr_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L32)
-    ([`xds.type.v3.CelExpression`]): Must be present.
-    -   [`cel_expr_checked`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L49)
-        ([`cel.expr.CheckedExpr`]): Must be present. This message will be
-        converted into a native CEL Abstract Syntax Tree
-        (AST) using the language-specific CEL library. The AST's output (return)
-        type must be boolean. The resulting CEL program must also be validated
-        to conform to [CEL Runtime Restrictions]. If any of these conversion or
-        validation steps fail, gRPC will NACK the xDS resource.
+    ([`xds.type.v3.CelExpression`][`CelExpression` message]): Must be present.
 -   [`description`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L36):
     An optional string. May be ignored or used for testing/debugging.
 
-The following fields will be ignored by gRPC:
-
--   `CelExpression.parsed_expr` - deprecated, only Canonical CEL is supported.
--   `CelExpression.checked_expr` - deprecated, only Canonical CEL is supported.
--   `CelExpression.cel_expr_parsed` - only Checked CEL expressions are
-    supported.
-
 ### CEL Integration
 
-We will support request metadata matching via CEL expressions. Only Canonical
-CEL and only checked expressions will be supported [`cel.expr.CheckedExpr`].
+We will support request metadata matching via CEL expressions.
 
 CEL evaluation environment is a set of available variables and extension
 functions in a CEL program. We will match
 [Envoy CEL environment](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes)
 and CEL interpreter configuration.
+
+#### `CelExpression` message
+
+[`xds.type.v3.CelExpression`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L26
+
+CEL expressions will be provided by the xDS Control Plane in the
+[`xds.type.v3.CelExpression`] message, which allows to specify CEL Abstract
+Syntax Tree (AST) in different forms (e.g., `googleapis` or canonical, and each
+may be either parsed or checked). We will only support one form: type-checked
+Canonical CEL, specifically the [`cel.expr.CheckedExpr`] message.
+
+We will support the following fields in the
+[`xds.type.v3.CelExpression`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L30)
+message:
+
+-   ([`xds.type.v3.CelExpression`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L26)):
+    Must be present.
+    -   [`cel_expr_checked`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L49)
+        ([`cel.expr.CheckedExpr`]): Must be present. This message will be
+        converted into a native CEL Abstract Syntax Tree (AST) using the
+        language-specific CEL library. The AST's output (return) type must be
+        boolean. The resulting CEL program must also be validated to conform to
+        [CEL Runtime Restrictions]. If the conversion or the validation step
+        fail, gRPC will NACK the xDS resource.
+
+The following fields will be ignored by gRPC:
+
+-   `parsed_expr` - deprecated, only Canonical CEL is supported.
+-   `checked_expr` - deprecated, only Canonical CEL is supported.
+-   `cel_expr_parsed` - only Checked CEL expressions are supported.
 
 #### CEL Runtime Restrictions
 
