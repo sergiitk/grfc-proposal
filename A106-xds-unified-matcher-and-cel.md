@@ -383,10 +383,10 @@ result in xDS resource NACK:
 to a `string`.
 
 We will support the following fields in the
-[`xds.type.matcher.v3.CelExtractString`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L62)
+[`xds.type.v3.CelExtractString`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L69)
 message:
 
--   [`expr_extract`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L65)
+-   [`expr_extract`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L72)
     ([`xds.type.v3.CelExpression`][`CelExpression` message]): Must be present.
     This message will be converted into a native CEL Abstract Syntax Tree (AST)
     using the language-specific CEL library. The AST's output (return) type must
@@ -394,7 +394,7 @@ message:
     [Supported CEL Variables]. The resulting CEL program must also be validated
     to conform to [CEL Runtime Restrictions]. If the conversion or the
     validation step fail, gRPC will NACK the xDS resource.
--   [`default_value`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L69):
+-   [`default_value`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L76):
     ([`StringValue`]) Optional. If set, and the CEL expression evaluates to an
     error or a non-string type, this default value will be returned instead.
 
