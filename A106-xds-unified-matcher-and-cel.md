@@ -77,30 +77,27 @@ request matching based on a wide range of request attributes.
 
 ## Proposal
 
-### Unified Matcher API Support
+### Unified Matcher
 
-> [!WARNING] TODO(sergiitk): good idea to executing parse matching tree, add a
-> few examples. here's how matching should work in these cases.
-> 
-> implementation and test suite:
-> https://github.com/grpc/grpc/blob/master/test/core/xds/xds_matcher_test.cc
-> https://github.com/grpc/grpc/blob/master/test/core/xds/xds_matcher_parse_test.cc
+#### Unified Matcher: Core Concepts
 
-Envoy provides two syntactically equivalent Unified Matcher definitions:
-[`envoy.config.common.matcher.v3.Matcher`](https://github.com/envoyproxy/envoy/blob/426cd861187368163b42fce910ab5828f7f0b392/api/envoy/config/common/matcher/v3/matcher.proto)
-and
-[`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto),
-which is the preferred version for all new APIs using Unified Matcher. We will
-produce the same form for either one.
+The Unified Matcher API revolves around a few key concepts:
 
-In this iteration, the following Unified Mather extensions will be supported:
-
-1.  Inputs:
-    1.  [Unified Matcher: `HttpRequestHeaderMatchInput`]
-    2.  [Unified Matcher: `HttpAttributesCelMatchInput`]
-2.  Matchers:
-    1.  [Unified Matcher: `StringMatcher`](standard matcher)
-    2.  [Unified Matcher: `CelMatcher`]
+1.  **Matcher**: A matcher is a rule that evaluates to true or false based on
+   some properties of the input data. Matchers can be simple (e.g., checking if
+   a header has a specific value) or complex (e.g., a boolean combination of
+   other matchers, nested matchers, etc).
+2.  **Matcher Action**: If a matcher evaluates to true, an associated action is
+   taken. This action could be anything from selecting a route to applying a
+   filter.
+3.  **Matcher Input**: This extracts the data from the Matcher Context and
+   provides it to the matchers evaluate. For example, it may get a specific
+   header from the request provided in the matcher context.
+4.  **Matcher Context**: This holds the input data and any other contextual
+   information needed during the matching process. It may include information
+   about the request being processed, the response, connection info, a
+   combination of thereof, additional parameters to mathers that support it,
+   etc.
 
 #### Unified Matcher: Filter Integration
 
@@ -143,9 +140,14 @@ While the Unified Matcher API allows for matcher trees of arbitrary depth, gRPC
 will reject any matcher definition with a tree depth greater than `16`, NACKing
 the xDS resource.
 
-We will support the following fields in the
-[`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L22)
-message:
+Envoy provides two syntactically equivalent Unified Matcher definitions:
+[`envoy.config.common.matcher.v3.Matcher`](https://github.com/envoyproxy/envoy/blob/426cd861187368163b42fce910ab5828f7f0b392/api/envoy/config/common/matcher/v3/matcher.proto)
+and
+[`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto),
+which is the preferred version for all new APIs using Unified Matcher. We will
+produce the same form for either one.
+
+We will support the following `Matcher` fields:
 
 -   `matcher_type`: One of the following must be present:
     -   [`matcher_list`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L134)
@@ -260,6 +262,11 @@ result in xDS resource NACK:
 
 #### Unified Matcher: Input Extensions
 
+In this iteration, the following Unified Mather extensions will be supported:
+
+1.  [Unified Matcher: `HttpRequestHeaderMatchInput`]
+2.  [Unified Matcher: `HttpAttributesCelMatchInput`]
+
 ##### Unified Matcher: `HttpRequestHeaderMatchInput`
 
 Returns a `string` containing the value of the header with name specified in
@@ -286,8 +293,10 @@ message:
 
 #### Unified Matcher: Matching Extensions
 
-Matching extensions must return a boolean that indicates the status of the
-match.
+In this iteration, the following Unified Mather extensions will be supported:
+
+1.  [Unified Matcher: `StringMatcher`](standard matcher)
+2.  [Unified Matcher: `CelMatcher`]
 
 ##### Unified Matcher: `StringMatcher`
 
@@ -401,7 +410,7 @@ exhaustion. To ensure consistent behavior with Envoy and maintain security, gRPC
 will configure the CEL runtime
 [similar to Envoy](https://github.com/envoyproxy/envoy/blob/c57801c2afbe26dd6fad7f5ce764f267d07fbd04/source/extensions/filters/common/expr/evaluator.cc#L17-L23):
 
-```c
+```cpp
 // Disables comprehension expressions, e.g. exists(), all().
 options.enable_comprehension = false;
 
