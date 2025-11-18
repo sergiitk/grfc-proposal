@@ -359,20 +359,22 @@ Syntax Tree (AST) in different forms (e.g., `googleapis` or canonical, and each
 may be either parsed or checked). We will only support one form: type-checked
 Canonical CEL, specifically the [`cel.expr.CheckedExpr`] message.
 
-We will support the following fields in the
-[`xds.type.v3.CelExpression`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/cel.proto#L30)
+We will support the following fields in the [`xds.type.v3.CelExpression`]
 message:
 
--   ([`xds.type.v3.CelExpression`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L26)):
-    Must be present.
-    -   [`cel_expr_checked`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L49)
-        ([`cel.expr.CheckedExpr`]): Must be present.
+-   [`cel_expr_checked`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L49)
+    ([`cel.expr.CheckedExpr`]): Must be present.
 
 The following fields will be ignored by gRPC:
 
 -   `parsed_expr` - deprecated, only Canonical CEL is supported.
 -   `checked_expr` - deprecated, only Canonical CEL is supported.
 -   `cel_expr_parsed` - only Checked CEL expressions are supported.
+
+The following are not supported by gRPC in the initial implementation and will
+result in xDS resource NACK:
+
+-   `cel_expr_string`
 
 #### `CelExtractString` message
 
