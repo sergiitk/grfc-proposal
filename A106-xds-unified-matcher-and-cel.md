@@ -124,8 +124,8 @@ The filter implementing the Unified Matcher API must define the set of
 protocol-specific actions it supports. If an action is not supported, gRPC will
 NACK the xDS resource.
 
-The filter must define the supported fields and proto validation rules for each
-protocol-specific action.
+Upon a successful match, the matched action will be returned as the result of
+the matcher tree evaluation.
 
 ##### Behavior for Unsuccessful Matches
 
@@ -256,13 +256,11 @@ message:
         -   [`map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L102)
             A map from a `string` to [Unified Matcher: `OnMatch`]. Must contain
             at least 1 pair.
-    -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L120)
-        ([`TypedExtensionConfig`]): Must contain one of the matching extensions
-        [supported by the filter][Unified Matcher: Filter Integration]. Must be
-        compatible with the return type of the `input`.
 
-> [!WARNING] TODO(sergiitk): MatcherTree.custom_match
-> check what actually goes into `custom_match` for `MatcherTree`
+The following are not supported by gRPC in the initial implementation and will
+result in xDS resource NACK:
+
+-   `custom_match`
 
 #### Unified Matcher: Input Extensions
 
