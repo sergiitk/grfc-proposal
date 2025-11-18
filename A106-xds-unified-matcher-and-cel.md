@@ -87,7 +87,7 @@ request matching based on a wide range of request attributes.
 > https://github.com/grpc/grpc/blob/master/test/core/xds/xds_matcher_parse_test.cc
 
 Envoy provides two syntactically equivalent Unified Matcher definitions:
-[`envoy.config.common.matcher.v3.Matcher`](https://github.com/envoyproxy/envoy/blob/e3da7ebb16ad01c2ac7662758a75dba5cdc024ce/api/envoy/config/common/matcher/v3/matcher.proto)
+[`envoy.config.common.matcher.v3.Matcher`](https://github.com/envoyproxy/envoy/blob/426cd861187368163b42fce910ab5828f7f0b392/api/envoy/config/common/matcher/v3/matcher.proto)
 and
 [`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto),
 which is the preferred version for all new APIs using Unified Matcher. We will
@@ -270,7 +270,7 @@ Returns a `string` containing the value of the header with name specified in
 `header_name`.
 
 We will support the following fields in the
-[`envoy.type.matcher.v3.HttpRequestHeaderMatchInput`](https://github.com/envoyproxy/envoy/blob/7ebdf6da0a49240778fd6fed42670157fde371db/api/envoy/type/matcher/v3/http_inputs.proto#L22)
+[`envoy.type.matcher.v3.HttpRequestHeaderMatchInput`](https://github.com/envoyproxy/envoy/blob/426cd861187368163b42fce910ab5828f7f0b392/api/envoy/type/matcher/v3/http_inputs.proto#L22)
 message:
 
 -   [`header_name`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L106):
@@ -384,7 +384,7 @@ We will support the following fields in the
 [`xds.type.matcher.v3.CelExtractString`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L62)
 message:
 
--   [`expr_extract`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#65)
+-   [`expr_extract`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L65)
     ([`xds.type.v3.CelExpression`][`CelExpression` message]): Must be present.
     This message will be converted into a native CEL Abstract Syntax Tree (AST)
     using the language-specific CEL library. The AST's output (return) type must
