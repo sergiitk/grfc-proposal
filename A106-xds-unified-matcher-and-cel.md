@@ -73,7 +73,7 @@ request matching based on a wide range of request attributes.
 [Supported CEL Variables]: #supported-cel-variables
 
 [`StringValue`]: https://protobuf.dev/reference/protobuf/google.protobuf/#string-value
-[`TypedExtensionConfig`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/core/v3/extension.proto#L14
+[`TypedExtensionConfig`]: https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/core/v3/extension.proto#L14
 
 ## Proposal
 
@@ -89,7 +89,7 @@ request matching based on a wide range of request attributes.
 Envoy provides two syntactically equivalent Unified Matcher definitions:
 [`envoy.config.common.matcher.v3.Matcher`](https://github.com/envoyproxy/envoy/blob/426cd861187368163b42fce910ab5828f7f0b392/api/envoy/config/common/matcher/v3/matcher.proto)
 and
-[`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto),
+[`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto),
 which is the preferred version for all new APIs using Unified Matcher. We will
 produce the same form for either one.
 
@@ -144,15 +144,15 @@ will reject any matcher definition with a tree depth greater than `16`, NACKing
 the xDS resource.
 
 We will support the following fields in the
-[`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L22)
+[`xds.type.matcher.v3.Matcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L22)
 message:
 
 -   `matcher_type`: One of the following must be present:
-    -   [`matcher_list`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L126)
+    -   [`matcher_list`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L126)
         ([Unified Matcher: `MatcherList`]).
-    -   [`matcher_tree`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L129)
+    -   [`matcher_tree`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L129)
         ([Unified Matcher: `MatcherTree`]).
--   [`on_no_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L135):
+-   [`on_no_match`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L135):
     ([Unified Matcher: `OnMatch`]): Specifies the action executed if no match is
     found in the `matcher_list` or `matcher_tree`. If not set, refer to filter's
     [unsuccessful match behavior][Unified Matcher: Filter Integration].
@@ -160,14 +160,14 @@ message:
 #### Unified Matcher: `OnMatch`
 
 We will support the following fields in the
-[`xds.type.matcher.v3.Matcher.OnMatch`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L24)
+[`xds.type.matcher.v3.Matcher.OnMatch`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L24)
 message:
 
 -   `on_match`: One of the following must be present:
-    -   [`matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L33)
+    -   [`matcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L33)
         ([Unified Matcher: `Matcher`]): A nested matcher that allows for
         building more complex, tree-like matching logic.
-    -   [`action`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L36)
+    -   [`action`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L36)
         ([`TypedExtensionConfig`]): If set, must contain one of the
         protocol-specific actions
         [supported by the filter][Unified Matcher: Filter Integration].
@@ -181,79 +181,79 @@ The following fields will be ignored by gRPC:
 
 #### Unified Matcher: `MatcherList`
 
-[`Matcher.MatcherList.Predicate`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L45
-[`Matcher.MatcherList.Predicate.PredicateList`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L65
+[`Matcher.MatcherList.Predicate`]: https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L45
+[`Matcher.MatcherList.Predicate.PredicateList`]: https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L65
 
 We will support the following fields in the
-[`xds.type.matcher.v3.Matcher.MatcherList`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L43)
+[`xds.type.matcher.v3.Matcher.MatcherList`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L43)
 message:
 
--   [`matchers`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L96)
+-   [`matchers`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L96)
     (repeated
-    [`Matcher.MatcherList.FieldMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L87)):
+    [`Matcher.MatcherList.FieldMatcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L87)):
     Must contain at least 1 item.
-    -   [`predicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L89)
-        ([`Matcher.MatcherList.Predicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L45)):
+    -   [`predicate`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L89)
+        ([`Matcher.MatcherList.Predicate`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L45)):
         Must be present.
         -   `match_type`: One of the following must be present:
-            -   [`single_predicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L73)
-                ([`Matcher.MatcherList.Predicate.SinglePredicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L47)):
+            -   [`single_predicate`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L73)
+                ([`Matcher.MatcherList.Predicate.SinglePredicate`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L47)):
                 If set, the return type of the `input` must match the input type
                 of the `matcher`.
-                -   [`input`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L50)
+                -   [`input`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L50)
                     ([`TypedExtensionConfig`]): Must be present and contain one
                     of the input extensions
                     [supported by the filter][Unified Matcher: Filter Integration].
                     Must have return type compatible with the `matcher`.
                 -   `matcher`: One of the following must be present:
-                    -   [`value_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L56)
+                    -   [`value_match`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L56)
                         ([Unified Matcher: `StringMatcher`]): Only compatible
                         with `input` that returns a string.
-                    -   [`custom_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L60)
+                    -   [`custom_match`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L60)
                         ([`TypedExtensionConfig`]): Must contain one of the
                         matching extensions
                         [supported by the filter][Unified Matcher: Filter Integration].
                         Must be compatible with the return type of the `input`.
-            -   [`or_matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L76)
+            -   [`or_matcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L76)
                 ([`Matcher.MatcherList.Predicate.PredicateList`]):
-                -   [`predicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L66)
+                -   [`predicate`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L66)
                     (repeated [`Matcher.MatcherList.Predicate`]): Must contain
                     at least 2 items. Returns true if any of them are true.
-            -   [`and_matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L79)
+            -   [`and_matcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L79)
                 ([`Matcher.MatcherList.Predicate.PredicateList`]):
-                -   [`predicate`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L66)
+                -   [`predicate`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L66)
                     (repeated [`Matcher.MatcherList.Predicate`]): Must contain
                     at least 2 items. Returns true if all of them are true.
-            -   [`not_matcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L82)
+            -   [`not_matcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L82)
                 ([`Matcher.MatcherList.Predicate`]): Returns the inverted result
                 of predicate evaluation.
-    -   [`on_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L92)
+    -   [`on_match`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L92)
         ([Unified Matcher: `OnMatch`]): Must be present.
 
 #### Unified Matcher: `MatcherTree`
 
-[`Matcher.MatcherTree.MatchMap`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L101
+[`Matcher.MatcherTree.MatchMap`]: https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L101
 
 We will support the following fields in the
-[`xds.type.matcher.v3.Matcher.MatcherTree`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L99)
+[`xds.type.matcher.v3.Matcher.MatcherTree`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L99)
 message:
 
--   [`input`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L106)
+-   [`input`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L106)
     ([`TypedExtensionConfig`]): Must be present and contain one of the input
     extensions
     [supported by the filter][Unified Matcher: Filter Integration]. Must have
     return type compatible with each matcher specified in the tree.
 -   `tree_type`: One of the following must be present:
-    -   [`exact_match_map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L114)
+    -   [`exact_match_map`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L114)
         ([`Matcher.MatcherTree.MatchMap`]): Only compatible with `input` that
         returns a `string`.
-        -   [`map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L102)
+        -   [`map`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L102)
             A map from a `string` to [Unified Matcher: `OnMatch`]. Must contain
             at least 1 pair.
-    -   [`prefix_match_map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L117)
+    -   [`prefix_match_map`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L117)
         ([`Matcher.MatcherTree.MatchMap`]): Only compatible with `input` that
         returns a `string`.
-        -   [`map`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L102)
+        -   [`map`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L102)
             A map from a `string` to [Unified Matcher: `OnMatch`]. Must contain
             at least 1 pair.
 
@@ -273,7 +273,7 @@ We will support the following fields in the
 [`envoy.type.matcher.v3.HttpRequestHeaderMatchInput`](https://github.com/envoyproxy/envoy/blob/426cd861187368163b42fce910ab5828f7f0b392/api/envoy/type/matcher/v3/http_inputs.proto#L22)
 message:
 
--   [`header_name`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L106):
+-   [`header_name`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L106):
     Must be present. Value length must be in the range `[1, 16384)`. Must be a
     valid HTTP/2 header name.
 
@@ -283,7 +283,7 @@ Returns a language-specific interface that allows to access request RPC metadata
 as defined in [Supported CEL Variables].
 
 We will support the following fields in the
-[`xds.type.matcher.v3.HttpAttributesCelMatchInput`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/http_inputs.proto#L22)
+[`xds.type.matcher.v3.HttpAttributesCelMatchInput`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/http_inputs.proto#L22)
 message:
 
 -   no fields.
@@ -298,19 +298,19 @@ match.
 Compatible with [Unified Matcher: Input Extensions] that return a `string`.
 
 We will support the following fields in the
-[`xds.type.matcher.v3.StringMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L19)
+[`xds.type.matcher.v3.StringMatcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/string.proto#L19)
 message:
 
 -   `match_pattern`: One of the following must be present:
-    -   [`exact`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L28):
+    -   [`exact`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/string.proto#L28):
         The input string must match exactly. An empty string is a valid value.
-    -   [`prefix`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L36):
+    -   [`prefix`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/string.proto#L36):
         The input string must have this prefix. Must be non-empty.
-    -   [`suffix`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L44):
+    -   [`suffix`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/string.proto#L44):
         The input string must have this suffix. Must be non-empty.
-    -   [`contains`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L55):
+    -   [`contains`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/string.proto#L55):
         The input string must contain this substring. Must be non-empty.
--   [`ignore_case`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/string.proto#L65):
+-   [`ignore_case`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/string.proto#L65):
     If `true`, the matching is case-insensitive.
 
 The following are not supported by gRPC in the initial implementation and will
@@ -327,17 +327,17 @@ Performs a match by evaluating a [Common Expression Language] (CEL) expression.
 See [CEL Integration] for details.
 
 We will support the following fields in the
-[`xds.type.matcher.v3.CelMatcher`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L30)
+[`xds.type.matcher.v3.CelMatcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/cel.proto#L30)
 message:
 
--   [`expr_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L32)
+-   [`expr_match`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/cel.proto#L32)
     ([`xds.type.v3.CelExpression`][`CelExpression` message]): Must be present.
     This message will be converted into a native CEL Abstract Syntax Tree (AST)
     using the language-specific CEL library. The AST's output (return) type must
     be boolean. The resulting CEL program must also be validated to conform to
     [CEL Runtime Restrictions] and only contain [Supported CEL Variables]. If
     the conversion or the validation step fail, gRPC will NACK the xDS resource.
--   [`description`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L36):
+-   [`description`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/cel.proto#L36):
     An optional string. May be ignored or used for testing/debugging.
 
 ### CEL Integration
@@ -351,7 +351,7 @@ and CEL interpreter configuration.
 
 #### `CelExpression` message
 
-[`xds.type.v3.CelExpression`]: https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L26
+[`xds.type.v3.CelExpression`]: https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L26
 
 CEL expressions will be provided by the xDS Control Plane in the
 [`xds.type.v3.CelExpression`] message, which allows to specify CEL Abstract
@@ -360,12 +360,12 @@ may be either parsed or checked). We will only support one form: type-checked
 Canonical CEL, specifically the [`cel.expr.CheckedExpr`] message.
 
 We will support the following fields in the
-[`xds.type.v3.CelExpression`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/cel.proto#L30)
+[`xds.type.v3.CelExpression`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/cel.proto#L30)
 message:
 
--   ([`xds.type.v3.CelExpression`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L26)):
+-   ([`xds.type.v3.CelExpression`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L26)):
     Must be present.
-    -   [`cel_expr_checked`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L49)
+    -   [`cel_expr_checked`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L49)
         ([`cel.expr.CheckedExpr`]): Must be present.
 
 The following fields will be ignored by gRPC:
@@ -381,10 +381,10 @@ The following fields will be ignored by gRPC:
 to a `string`.
 
 We will support the following fields in the
-[`xds.type.matcher.v3.CelExtractString`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L62)
+[`xds.type.matcher.v3.CelExtractString`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L62)
 message:
 
--   [`expr_extract`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L65)
+-   [`expr_extract`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L65)
     ([`xds.type.v3.CelExpression`][`CelExpression` message]): Must be present.
     This message will be converted into a native CEL Abstract Syntax Tree (AST)
     using the language-specific CEL library. The AST's output (return) type must
@@ -392,7 +392,7 @@ message:
     [Supported CEL Variables]. The resulting CEL program must also be validated
     to conform to [CEL Runtime Restrictions]. If the conversion or the
     validation step fail, gRPC will NACK the xDS resource.
--   [`default_value`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/v3/cel.proto#L69):
+-   [`default_value`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L69):
     ([`StringValue`]) Optional. If set, and the CEL expression evaluates to an
     error or a non-string type, this default value will be returned instead.
 
