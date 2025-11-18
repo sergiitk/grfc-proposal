@@ -171,13 +171,9 @@ message:
         ([`TypedExtensionConfig`]): If set, must contain one of the
         protocol-specific actions
         [supported by the filter][Unified Matcher: Filter Integration].
-
-The following fields will be ignored by gRPC:
-
--   `keep_matching`: Not supported in the initial implementation, may be added
-    later.
-
-> [!WARNING] TODO(sergiitk): consider
+-   [`keep_matching`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L45)
+    (bool): If this field is set in a context in which it's not supported, the
+    xDS resource will be NACKed.
 
 #### Unified Matcher: `MatcherList`
 
