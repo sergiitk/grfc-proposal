@@ -104,19 +104,43 @@ In this iteration, the following Unified Mather extensions will be supported:
 
 #### Unified Matcher: Filter Integration
 
-When implementing Unified Matcher API, a filter must define the following:
+When implementing Unified Matcher API, a filter must define the following for
+each [Unified Matcher: `Matcher`] field in its config:
 
--   Supported protocol-specific actions (see [Unified Matcher: `OnMatch`]).
--   Supported [Unified Matcher: Input Extensions].
--   Supported [Unified Matcher: Matching Extensions], including any additional
-    limitations on their inputs. > [!WARNING] TODO(sergiitk): remove, clarify
-    this is based on return type of > the input
--   Filter-specific default no-match behavior (f.e. xDS resource NACK).
+1.  Supported protocol-specific actions.
+2.  Supported [Unified Matcher: Input Extensions].
+3.  Filter-specific behavior for unsuccessful matches.
+
+Note that the selection of input extensions defines the
+[Unified Matcher: Matching Extensions] that can be used with the filter.
+
+##### Protocol-Specific Actions
+
+Protocol-specific actions are used in
+[`OnMatch.action`][Unified Matcher: `OnMatch`] and may be any protocol-specific
+message packed into [`TypedExtensionConfig`].
+
+The filter implementing the Unified Matcher API must define the set of
+protocol-specific actions it supports. If an action is not supported, gRPC will
+NACK the xDS resource.
+
+The filter must define the supported fields and proto validation rules for each
+protocol-specific action.
+
+##### Behavior for Unsuccessful Matches
+
+The match is considered unsuccessful:
+
+1.  If no match found after evaluating the [Unified Matcher: `Matcher`] AND
+2.  `on_no_match` field is unset OR its evaluation is unsuccessful.
+
+The filter may define any behavior for an unsuccessful match, f.e. NACK the xDS
+resource, failing open/closed, etc.
 
 #### Unified Matcher: `Matcher`
 
 While the Unified Matcher API allows for matcher trees of arbitrary depth, gRPC
-will reject any matcher definition with a tree depth g
+will reject any matcher definition with a tree depth greater than `16`, NACKing
 the xDS resource.
 
 We will support the following fields in the
@@ -131,7 +155,7 @@ message:
 -   [`on_no_match`](https://github.com/cncf/xds/blob/b4127c9b8d78b77423fd25169f05b7476b6ea932/xds/type/matcher/v3/matcher.proto#L135):
     ([Unified Matcher: `OnMatch`]): Specifies the action executed if no match is
     found in the `matcher_list` or `matcher_tree`. If not set, refer to filter's
-    [default no-match behavior][Unified Matcher: Filter Integration].
+    [unsuccessful match behavior][Unified Matcher: Filter Integration].
 
 #### Unified Matcher: `OnMatch`
 
