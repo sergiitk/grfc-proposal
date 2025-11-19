@@ -347,11 +347,13 @@ message:
 
 #### Unified Matcher: Evaluation Flow
 
-**The Goal:** To produce a list of matching `Action`s.\
+**Goal:** To produce a list of matching `Action`s.\
 **Matcher Context:** The input to the Matcher evaluation tree. Provided at
 runtime by the filter, contains the input data. May contain any other contextual
-information relevant to the filter.\
-**The Matching Process:** Starting with a top-level `Matcher`, there will be one
+information relevant to the filter. Implementation note: when setting an input,
+consider memory footprint. For example, instead of resolving all headers in
+advance, provide them in a lazy-loading wrapper.
+**Matching Process:** Starting with a top-level `Matcher`, there will be one
 of the following matchers types:
 
 *   **[List Matcher][Unified Matcher: `MatcherList`]:** This is like a series of
@@ -375,7 +377,7 @@ of the following matchers types:
     *   It looks this the key for this exact string the a predefined map.
     *   If found, it executes the corresponding **Result**.
 
-* **[Prefix Map Matcher][Unified Matcher: `MatcherTree`]:** Similar to the Map
+*  **[Prefix Map Matcher][Unified Matcher: `MatcherTree`]:** Similar to the Map
     Matcher, but uses prefix matching (a Trie data structure).
     *   Using the `input` extension, it extracts a specific string value from the
         **Matcher Context**.
@@ -388,7 +390,7 @@ of the following matchers types:
         There's no other tie-breaking rule like alphabetical order among the
         tied keys.
 
-**[The Result][Unified Matcher: `OnMatch`]:** When a match occurs, the `OnMatch`
+**[Result][Unified Matcher: `OnMatch`]:** When a match occurs, the `OnMatch`
 dictates the outcome:
 
 *   It can contain an `Action` to be added to the results.
@@ -412,9 +414,9 @@ dictates the outcome:
 **Default/No Match:** Any `Matcher` can have a default `OnMatch` to use if none
 of its primary conditions or map lookups succeed. See details in
 [Unified Matcher: `Matcher`] and [Unified Matcher: Filter Integration].\
-**The Output:** A list of `Action` accumulated from all triggered `OnMatch`
+**The Output:** A list of `Action`s accumulated from all triggered `OnMatch`
 results. Generally, only a single `Action` will be returned, unless
-`keep_matching` is enabled, and multiple matches found.
+`keep_matching` is enabled and multiple matches found.
 
 #### Unified Matcher: Evaluation Examples
 
@@ -436,6 +438,7 @@ of a single header, the first matching predicate wins.
       {
         "predicate": {
           "single_predicate": {
+            // envoy.type.matcher.v3.HttpRequestHeaderMatchInput
             "input": { "header_name": "x-user-segment" },
             "value_match": { "exact": "premium" }
           }
