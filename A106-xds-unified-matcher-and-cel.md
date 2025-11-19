@@ -345,6 +345,146 @@ message:
 -   [`description`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/cel.proto#L36):
     An optional string. May be ignored or used for testing/debugging.
 
+#### Unified Matcher: Evaluation Flow
+
+**The Goal:** To produce a list of matching `Action`s.\
+**Matcher Context:** The input to the Matcher evaluation tree. Provided at
+runtime by the filter, contains the input data. May contain any other contextual
+information relevant to the filter.\
+**The Matching Process:** Starting with a top-level `Matcher`, there will be one
+of the following matchers types:
+
+*   **[List Matcher][Unified Matcher: `MatcherList`]:** This is like a series of
+    "if-elif-elif-else" statements. It goes through a list of rules:
+    *   Each rule has a **Condition** (`Predicate`) and a **Result** (`OnMatch`).
+    *   **Condition Checking:** To check a typical condition:
+        1.  Using the `input` extension, extract a specific piece of data from
+            the **Matcher Context** (e.g., the value of requests's `:host`
+            header).
+        2.  Using the `matcher` extension, compare the extracted data against
+            the matcher's criteria (e.g., "is it equal to `'example.com'`?",
+            "does it start with `'api.'`?").
+    *   Conditions can be combined using AND, OR, NOT, or nested via `OnMatch`.
+    *   **First Match Wins:** The *first* rule whose **Condition** is true has its
+        **Result** executed.
+
+*   **[Exact Map Matcher][Unified Matcher: `MatcherTree`]:** This is like a switch
+    statement or dictionary lookup.
+    *   Using the `input` extension, it extracts a specific string value from
+        the **Matcher Context**.
+    *   It looks this the key for this exact string the a predefined map.
+    *   If found, it executes the corresponding **Result**.
+
+* **[Prefix Map Matcher][Unified Matcher: `MatcherTree`]:** Similar to the Map
+    Matcher, but uses prefix matching (a Trie data structure).
+    *   Using the `input` extension, it extracts a specific string value from the
+        **Matcher Context**.
+    *   It finds all entries in the map whose keys are prefixes of the input
+        string.
+    *   The **Result** is chosen based the the key with the *longest* matching
+        prefix.
+    *   Undefined behavior: If there are multiple prefixes of the same greatest
+        length, their **Result**s are all processed in order of Trie traversal.
+        There's no other tie-breaking rule like alphabetical order among the
+        tied keys.
+
+**[The Result][Unified Matcher: `OnMatch`]:** When a match occurs, the `OnMatch`
+dictates the outcome:
+
+*   It can contain an `Action` to be added to the results.
+*   It can contain a nested `Matcher`, triggering a further round of matching.
+    *   The tree is validated to not contain matchers with the tree depth
+         greater than `16`. If this three depth is reached at runtime, 
+        the tree evaluation is terminated, and considered an
+        [unsuccessful match][Unified Matcher: Filter Integration].
+*   `keep_matching` determines whether a successful match within an `OnMatch`
+    should be considered "terminal" for the current `Matcher` being evaluated.
+    It essentially answers the question: "After processing this `OnMatch`,
+    should the current matcher stop looking for more matches, or continue?"
+    *   If `keep_matching` is `false` (the usual case), finding this `OnMatch` is
+       terminal. The `Action` is added (or the nested `Matcher` is evaluated),
+       and the current matcher stops searching.
+    *   If `keep_matching` is `true`, the `Action` is added (or nested
+       `XdsMatcher` evaluated), but the current matcher *continues* to look for
+       more matches. The overall process is not considered complete until an
+       `OnMatch` with `keep_matching` set to `false` is encountered.
+
+**Default/No Match:** Any `Matcher` can have a default `OnMatch` to use if none
+of its primary conditions or map lookups succeed. See details in
+[Unified Matcher: `Matcher`] and [Unified Matcher: Filter Integration].\
+**The Output:** A list of `Action` accumulated from all triggered `OnMatch`
+results. Generally, only a single `Action` will be returned, unless
+`keep_matching` is enabled, and multiple matches found.
+
+#### Unified Matcher: Evaluation Examples
+
+For simplicity, `TypedExtensionConfig`s are represented in a comment, and the
+`onMatch` action is be represented by a string like `"onMatch": { "action":
+"route_to_cluster_A" }`.
+
+##### Example 1: Simple Linear Match
+
+This example shows a basic matcher list. It routes requests based on the value
+of a single header, the first matching predicate wins.
+
+**Configuration:**
+
+```json5
+{
+  "matcher_list": {
+    "matchers": [
+      {
+        "predicate": {
+          "single_predicate": {
+            "input": { "header_name": "x-user-segment" },
+            "value_match": { "exact": "premium" }
+          }
+        },
+        "onMatch": { "action": "route_to_premium_cluster" }
+      },
+      {
+        "predicate": {
+          "single_predicate": {
+            "input": { "header_name": "x-user-segment" },
+            "value_match": { "prefix": "standard" }
+          }
+        },
+        "onMatch": { "action": "route_to_standard_cluster" }
+      }
+    ]
+  },
+  "on_no_match": { "action": "route_to_default_cluster" }
+}
+```
+
+**Request Input 1:**
+
+*   Headers: `{ "x-user-segment": "premium" }`
+
+**Evaluation:**
+
+1.  The `matcher_list` evaluates its matchers in order.
+2.  The first matcher checks if the `x-user-segment` header has the exact value "premium".
+3.  The input header `x-user-segment: premium` is an exact match.
+4.  The predicate is **true**. The `matcher_list` stops processing further matchers.
+
+**Result 1:** The action `route_to_premium_cluster` is chosen.
+
+**Request Input 2:**
+
+*   Headers: `{ "x-user-segment": "guest" }`
+
+**Evaluation:**
+
+1.  The `matcher_list` evaluates its matchers in order.
+2.  The first matcher for "premium" is **false**.
+3.  The second matcher for "standard" is **false**.
+4.  No matchers in the list evaluated to true.
+
+**Result 2:** The `onNoMatch` action `route_to_default_cluster` is chosen.
+
+---
+
 ### CEL Integration
 
 We will support request metadata matching via CEL expressions.
