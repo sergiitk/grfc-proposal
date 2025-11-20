@@ -568,6 +568,56 @@ accumulated until a matcher with `keep_matching: false` (the default) is found.
 
 **Result:** `["Action1", "Action3"]`
 
+##### Example 3: Nested Matcher
+
+This example shows a matcher whose action is another matcher.
+
+**Configuration:**
+
+```json5
+{
+  "matcher_list": {
+    "matchers": [
+      {
+        "predicate": { "single_predicate": { "custom_match": true } },
+        "on_match": {
+          // Nested matcher with matcher_list.
+          "matcher": {
+            "matcher_list": {
+              "matchers": [
+                {
+                  "predicate": { "single_predicate": { "custom_match": false } },
+                  "on_match": { "action": "inner_matcher_1" }
+                },
+                {
+                  "predicate": { "single_predicate": { "custom_match": true } },
+                  "on_match": { "action": "inner_matcher_2" }
+                }
+              ]
+            }
+          }
+          // Nested matcher end.
+        }
+      }
+    ]
+  }
+}
+```
+
+**Evaluation:**
+
+1.  The outer `matcher_list` evaluates its first (and only) matcher:
+    *   The predicate of the outer matcher evaluates to `true`.
+    *   The `on_match` of the outer matcher contains a nested matcher.
+    *   The three depth is not greater than 16, the nested matcher is evaluated:
+        1.  The inner `matcher_list` evaluates first matcher to `false`.
+        2.  The inner `matcher_list` evaluates its second matcher to `true`:
+            *   The predicate is `true`, its `on_match` is evaluated.
+            *   The action `inner_match_2` is added to the result list.
+            *   Evaluation stops because `keep_matching` is not set.
+
+**Result 1:** `["inner_matcher_2"]`
+
 ---
 
 ### CEL Integration
