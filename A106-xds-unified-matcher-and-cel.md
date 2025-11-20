@@ -67,10 +67,10 @@ request matching based on a wide range of request attributes.
 [`cel.expr.CheckedExpr`]: https://github.com/google/cel-spec/blob/master/proto/cel/expr/checked.proto
 
 [CEL Integration]: #cel-integration
-[`CelExpression` message]: #celexpression-message
-[CEL Runtime Restrictions]: #cel-runtime-restrictions
-[Supported CEL Functions]: #supported-cel-functions
-[Supported CEL Variables]: #supported-cel-variables
+[CEL: `CelExpression`]: #cel-celexpression
+[CEL: Runtime Restrictions]: #cel-runtime-restrictions
+[CEL: Supported Functions]: #cel-supported-functions
+[CEL: Supported Variables]: #cel-supported-variables
 
 [`StringValue`]: https://protobuf.dev/reference/protobuf/google.protobuf/#string-value
 [`TypedExtensionConfig`]: https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/core/v3/extension.proto#L14
@@ -283,7 +283,7 @@ message:
 ##### Unified Matcher: `HttpAttributesCelMatchInput`
 
 Returns a language-specific interface that allows to access request RPC metadata
-as defined in [Supported CEL Variables].
+as defined in [CEL: Supported Variables].
 
 We will support the following fields in the
 [`xds.type.matcher.v3.HttpAttributesCelMatchInput`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/http_inputs.proto#L22)
@@ -336,11 +336,11 @@ We will support the following fields in the
 message:
 
 -   [`expr_match`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/cel.proto#L32)
-    ([`xds.type.v3.CelExpression`][`CelExpression` message]): Must be present.
+    ([`xds.type.v3.CelExpression`][CEL: `CelExpression`]): Must be present.
     This message will be converted into a native CEL Abstract Syntax Tree (AST)
     using the language-specific CEL library. The AST's output (return) type must
     be boolean. The resulting CEL program must also be validated to conform to
-    [CEL Runtime Restrictions] and only contain [Supported CEL Variables]. If
+    [CEL: Runtime Restrictions] and only contain [CEL: Supported Variables]. If
     the conversion or the validation step fail, gRPC will NACK the xDS resource.
 -   [`description`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/cel.proto#L36):
     An optional string. May be ignored or used for testing/debugging.
@@ -666,7 +666,7 @@ functions in a CEL program. We will match
 [Envoy CEL environment](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes)
 and CEL interpreter configuration.
 
-#### `CelExpression` message
+#### CEL: `CelExpression`
 
 [`xds.type.v3.CelExpression`]: https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L26
 
@@ -693,10 +693,10 @@ result in xDS resource NACK:
 
 -   `cel_expr_string`
 
-#### `CelExtractString` message
+#### CEL: `CelExtractString`
 
 `CelExtractString` is a small tool that allows to extract a string from
-[Supported CEL Variables] using a CEL expression. The expression must evaluate
+[CEL: Supported Variables] using a CEL expression. The expression must evaluate
 to a `string`.
 
 We will support the following fields in the
@@ -704,18 +704,18 @@ We will support the following fields in the
 message:
 
 -   [`expr_extract`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L72)
-    ([`xds.type.v3.CelExpression`][`CelExpression` message]): Must be present.
+    ([`xds.type.v3.CelExpression`][CEL: `CelExpression`]): Must be present.
     This message will be converted into a native CEL Abstract Syntax Tree (AST)
     using the language-specific CEL library. The AST's output (return) type must
-    be a `string`. It may only contain [Supported CEL Functions] and
-    [Supported CEL Variables]. The resulting CEL program must also be validated
-    to conform to [CEL Runtime Restrictions]. If the conversion or the
+    be a `string`. It may only contain [CEL: Supported Functions] and
+    [CEL: Supported Variables]. The resulting CEL program must also be validated
+    to conform to [CEL: Runtime Restrictions]. If the conversion or the
     validation step fail, gRPC will NACK the xDS resource.
 -   [`default_value`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/v3/cel.proto#L76):
     ([`StringValue`]) Optional. If set, and the CEL expression evaluates to an
     error or a non-string type, this default value will be returned instead.
 
-#### CEL Runtime Restrictions
+#### CEL: Runtime Restrictions
 
 Certain CEL features can lead to superlinear time complexity or memory
 exhaustion. To ensure consistent behavior with Envoy and maintain security, gRPC
@@ -739,7 +739,7 @@ options.enable_string_concat = false;
 options.enable_list_concat = false;
 ```
 
-#### Supported CEL Functions
+#### CEL: Supported Functions
 
 Similar to Envoy, we will support
 [standard CEL functions](https://github.com/google/cel-spec/blob/c629b2be086ed6b4c44ef4975e56945f66560677/doc/langdef.md#standard-definitions)
@@ -761,7 +761,7 @@ except comprehension-style macros.
 
 [RE2_wiki]: https://en.wikipedia.org/wiki/RE2_(software)
 
-#### Supported CEL Variables
+#### CEL: Supported Variables
 
 In the initial implementation only the `request` variable is supported in CEL
 expressions. We will adapt
@@ -795,7 +795,7 @@ As defined in [A41], "header" field.
 > [!WARNING] TODO(sergiitk): comment: Response attributes are needed for
 > ext_proc
 
-##### CEL Variable Implementation Details
+##### CEL: Variable Implementation Details
 
 For performance reasons, CEL variables should be resolved on demand. CEL Runtime
 provides the different variable resolving approaches based on the language:
