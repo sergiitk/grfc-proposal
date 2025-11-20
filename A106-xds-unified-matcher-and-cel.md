@@ -426,6 +426,9 @@ For simplicity:
     value directly contains the unpacked message content.
 *   `on_match` action: Represented by a string, for example,
     `"on_match": { "action": "route_to_cluster_A" }`.
+*   The first example will include `input` to demonstrate the data flow.
+*   Other examples will skip the input and simply indicates the result of
+    evaluation in `custom_match` field, for example, `{ "custom_match": true }`.
 
 ##### Example 1: Simple Linear Match
 
@@ -468,18 +471,36 @@ of a single header, the first matching predicate wins.
 
 *   Headers: `{ "x-user-segment": "standard-user-1" }`
 
-**Evaluation:**
+**Evaluation (detailed):**
 
 1.  The `matcher_list` evaluates its matchers in order.
-2.  The first matcher checks if the `x-user-segment` header has the exact value
-    `premium`.
+2.  The first matcher is evaluated.
+    *   The `input` executes `HttpRequestHeaderMatchInput` extension:
+        *   The extension logic extracts the value of the `x-user-segment`
+            header from the Matcher Context.
+        *   The `input` returns `standard-user-1`.
+    *   The `StringMatcher` is evaluated (standard matcher):
+        *   The input is a string `standard-user-1`, which is the correct input
+            type for this matcher.
+        *   The `StringMatcher` checks if the value `standard-user-1` has
+            the exact value `premium`.
+        *   The result of matcher evaluation is `false`
     *   The predicate is `false`, matching continues.
-3.  The second matcher checks if the `x-user-segment` header has the prefix
-    `standard-`.
+3.  The second matcher is evaluated:
+    *   The `input` executes `HttpRequestHeaderMatchInput` extension:
+        *   The extension logic extracts the value of the `x-user-segment`
+            header from the Matcher Context.
+        *   The `input` returns `standard-user-1`.
+    *   The `StringMatcher` is evaluated (standard matcher):
+        *   The input is a string `standard-user-1`, which is the correct input
+            type for this matcher.
+        *   The `StringMatcher` checks if the value `standard-user-1` has the
+            prefix `standard-`.
+        *   The result of matcher evaluation is `true`
     *   The predicate is `true`, its `on_match` is evaluated.
-    *   The action `route_to_standard_cluster` is chosen.
-    *   The `matcher_list` stops processing further matchers because
-        `keep_matching` is not set.
+        *   The action `route_to_standard_cluster` is chosen.
+        *   The `matcher_list` stops processing further matchers because
+            `keep_matching` is not set.
 
 **Result 1:** `["route_to_standard_cluster"]`.
 
@@ -487,16 +508,65 @@ of a single header, the first matching predicate wins.
 
 *   Headers: `{ "x-user-segment": "guest" }`
 
-**Evaluation:**
+**Evaluation (simplified):**
 
 1.  The `matcher_list` evaluates its matchers in order.
-2.  The first matcher for "premium" is `false`.
-3.  The second matcher for "standard" is `false`.
-4.  No matchers in the list evaluated to `true`.
-5.  `on_no_match` is evaluated.
+2.  The first matcher for `premium` is `false`.
+3.  The second matcher for `standard-` prefix is `false`.
+4.  No matchers in the list evaluated to `true`, therefore the `on_no_match` is
+    evaluated:
     *   The action `route_to_default_cluster` is chosen.
 
 **Result 2:** ["route_to_default_cluster"]
+
+##### Example 2: Keep Matching
+
+This example demonstrates the effect of `keep_matching: true`. Actions are
+accumulated until a matcher with `keep_matching: false` (the default) is found.
+
+**Configuration:**
+
+```json5
+{
+  "matcher_list": {
+    "matchers": [
+      // Matcher 1
+      {
+        "predicate": { "single_predicate": { "custom_match": true } },
+        "on_match": { "action": "Action1", "keep_matching": true }
+      },
+      // Matcher 2
+      {
+        "predicate": { "single_predicate": { "custom_match": false } },
+        "on_match": { "action": "Action2" }
+      },
+      // Matcher 3
+      {
+        "predicate": { "single_predicate": { "custom_match": true } },
+        "on_match": { "action": "Action3" }
+      },
+      // Matcher 4
+      {
+        "predicate": { "single_predicate": { "custom_match": false } },
+        "on_match": { "action": "Action4" }
+      }
+    ]
+  }
+}
+```
+
+**Evaluation:**
+
+1.  Matcher 1 evaluates to `true`.
+    *   `Action1` is added to the result list.
+    *   Matching continues because `keep_matching: true`.
+2.  Matcher 2 evaluates to `false`.
+3.  Matcher 3 evaluates to `true`.
+    *   `Action3` is added to the result list.
+    *   Matching stops because `keep_matching` is false by default.
+4.  Matcher 4 is not evaluated.
+
+**Result:** `["Action1", "Action3"]`
 
 ---
 
