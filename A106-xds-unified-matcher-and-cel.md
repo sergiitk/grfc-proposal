@@ -377,7 +377,7 @@ of the following matchers types:
     *   It looks this the key for this exact string the a predefined map.
     *   If found, it executes the corresponding **Result**.
 
-*  **[Prefix Map Matcher][Unified Matcher: `MatcherTree`]:** Similar to the Map
+*   **[Prefix Map Matcher][Unified Matcher: `MatcherTree`]:** Similar to the Map
     Matcher, but uses prefix matching (a Trie data structure).
     *   Using the `input` extension, it extracts a specific string value from the
         **Matcher Context**.
@@ -396,7 +396,7 @@ dictates the outcome:
 *   It can contain an `Action` to be added to the results.
 *   It can contain a nested `Matcher`, triggering a further round of matching.
     *   The tree is validated to not contain matchers with the tree depth
-         greater than `16`. If this three depth is reached at runtime, 
+         greater than `16`. If this three depth is reached at runtime,
         the tree evaluation is terminated, and considered an
         [unsuccessful match][Unified Matcher: Filter Integration].
 *   `keep_matching` determines whether a successful match within an `OnMatch`
@@ -407,7 +407,7 @@ dictates the outcome:
        terminal. The `Action` is added (or the nested `Matcher` is evaluated),
        and the current matcher stops searching.
     *   If `keep_matching` is `true`, the `Action` is added (or nested
-       `XdsMatcher` evaluated), but the current matcher *continues* to look for
+       `Matcher` evaluated), but the current matcher *continues* to look for
        more matches. The overall process is not considered complete until an
        `OnMatch` with `keep_matching` set to `false` is encountered.
 
@@ -420,9 +420,12 @@ results. Generally, only a single `Action` will be returned, unless
 
 #### Unified Matcher: Evaluation Examples
 
-For simplicity, `TypedExtensionConfig`s are represented in a comment, and the
-`onMatch` action is be represented by a string like `"onMatch": { "action":
-"route_to_cluster_A" }`.
+For simplicity:
+
+*   `TypedExtensionConfig` fields: The type is captured in a comment, and the
+    value directly contains the unpacked message content.
+*   `on_match` action: Represented by a string, for example,
+    `"on_match": { "action": "route_to_cluster_A" }`.
 
 ##### Example 1: Simple Linear Match
 
@@ -443,16 +446,17 @@ of a single header, the first matching predicate wins.
             "value_match": { "exact": "premium" }
           }
         },
-        "onMatch": { "action": "route_to_premium_cluster" }
+        "on_match": { "action": "route_to_premium_cluster" }
       },
       {
         "predicate": {
           "single_predicate": {
+            // envoy.type.matcher.v3.HttpRequestHeaderMatchInput
             "input": { "header_name": "x-user-segment" },
-            "value_match": { "prefix": "standard" }
+            "value_match": { "prefix": "standard-" }
           }
         },
-        "onMatch": { "action": "route_to_standard_cluster" }
+        "on_match": { "action": "route_to_standard_cluster" }
       }
     ]
   },
@@ -462,16 +466,22 @@ of a single header, the first matching predicate wins.
 
 **Request Input 1:**
 
-*   Headers: `{ "x-user-segment": "premium" }`
+*   Headers: `{ "x-user-segment": "standard-user-1" }`
 
 **Evaluation:**
 
 1.  The `matcher_list` evaluates its matchers in order.
-2.  The first matcher checks if the `x-user-segment` header has the exact value "premium".
-3.  The input header `x-user-segment: premium` is an exact match.
-4.  The predicate is **true**. The `matcher_list` stops processing further matchers.
+2.  The first matcher checks if the `x-user-segment` header has the exact value
+    `premium`.
+    *   The predicate is `false`, matching continues.
+3.  The second matcher checks if the `x-user-segment` header has the prefix
+    `standard-`.
+    *   The predicate is `true`, its `on_match` is evaluated.
+    *   The action `route_to_standard_cluster` is chosen.
+    *   The `matcher_list` stops processing further matchers because
+        `keep_matching` is not set.
 
-**Result 1:** The action `route_to_premium_cluster` is chosen.
+**Result 1:** `["route_to_standard_cluster"]`.
 
 **Request Input 2:**
 
@@ -480,11 +490,13 @@ of a single header, the first matching predicate wins.
 **Evaluation:**
 
 1.  The `matcher_list` evaluates its matchers in order.
-2.  The first matcher for "premium" is **false**.
-3.  The second matcher for "standard" is **false**.
-4.  No matchers in the list evaluated to true.
+2.  The first matcher for "premium" is `false`.
+3.  The second matcher for "standard" is `false`.
+4.  No matchers in the list evaluated to `true`.
+5.  `on_no_match` is evaluated.
+    *   The action `route_to_default_cluster` is chosen.
 
-**Result 2:** The `onNoMatch` action `route_to_default_cluster` is chosen.
+**Result 2:** ["route_to_default_cluster"]
 
 ---
 
