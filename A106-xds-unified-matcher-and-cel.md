@@ -430,6 +430,10 @@ For simplicity:
 *   Other examples will skip the input and simply indicates the result of
     evaluation in `custom_match` field, for example, `{ "custom_match": true }`.
 
+For even more examples, refer to
+[Envoy's Unified Matcher API Documentation][Unified Matcher API] (note that
+these examples might be Envoy-specific).
+
 ##### Example 1: Simple Linear Match
 
 This example shows a basic matcher list. It routes requests based on the value
