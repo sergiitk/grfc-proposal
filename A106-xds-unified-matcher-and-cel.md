@@ -618,6 +618,39 @@ This example shows a matcher whose action is another matcher.
 
 **Result 1:** `["inner_matcher_2"]`
 
+##### Example 4: Prefix Map Matcher
+
+This shows a prefix map, where the longest prefix match wins.
+
+**Configuration:**
+
+```json5
+{
+  "matcher_prefix_map": {
+    // envoy.type.matcher.v3.HttpRequestHeaderMatchInput
+    "input": { "header_name": "x-user-segment" },
+    "map": {
+      "grpc": { "action": "shorter_prefix" },
+      "grpc.channelz": { "action": "longer_prefix" }
+    }
+  }
+}
+```
+
+**Request Input:**
+
+*   Path: `grpc.channelz.v1.Channelz/GetTopChannels`
+
+**Evaluation:**
+
+1.  The input path `grpc.channelz.v1.Channelz/GetTopChannels` is checked against
+    the map keys.
+2.  It matches both `grpc` and `grpc.channelz`.
+3.  The longest matching prefix is `grpc.channelz`.
+    *   The action `longer_prefix` is chosen.
+
+**Result 1:** `["longer_prefix"]`
+
 ---
 
 ### CEL Integration
