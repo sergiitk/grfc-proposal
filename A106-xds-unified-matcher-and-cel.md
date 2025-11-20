@@ -883,17 +883,15 @@ aligns gRPC with Envoy, creating a more cohesive xDS ecosystem.
 -   **Increased Complexity**: The system is powerful but also complex. The
     matcher API involves nested structures, different evaluation flows
     (`MatcherList` vs. `MatcherTree`), and nuanced behaviors like
-    `keep_matching`. Configuring and debugging this can be more challenging than
-    simpler matching schemes.
+    `keep_matching`. Debugging this can be more challenging than simpler
+    matching schemes.
 -   **Restricted CEL Functionality**: To ensure safety and performance, the
     implementation explicitly disables certain CEL features, such as
     comprehensions (`exists()`, `all()`). This is a direct trade-off of power
     for safety, meaning not all standard CEL capabilities are available.
 -   **Performance Overhead**: Evaluating CEL expressions for every request
     introduces computational overhead. While designed to be fast, it will be
-    slower than simple, hard-coded logic or basic string comparisons. The
-    proposal acknowledges this by recommending performance-conscious
-    implementation details like on-demand variable resolution.
+    slower than simple, hard-coded logic or basic string comparisons.
 
 ## Implementation
 
