@@ -792,9 +792,6 @@ denies requests for all other method types.
 **<sup>2</sup> `request.headers`** \
 As defined in [A41], "header" field.
 
-> [!WARNING] TODO(sergiitk): comment: Response attributes are needed for
-> ext_proc
-
 ##### CEL: Variable Implementation Details
 
 For performance reasons, CEL variables should be resolved on demand. CEL Runtime
@@ -806,6 +803,40 @@ provides the different variable resolving approaches based on the language:
     [`Activation.ResolveName(string)`](https://github.com/google/cel-go/blob/3f12ecad39e2eb662bcd82b6391cfd0cb4cb1c5e/interpreter/activation.go#L30)
 -   Java:
     [`CelVariableResolver`](https://javadoc.io/doc/dev.cel/runtime/0.6.0/dev/cel/runtime/CelVariableResolver.html)
+
+#### CEL: Unified Matcher Example
+
+CEL will be integrated into the Unified Matcher API like so:
+
+```textproto
+matcher_list {
+  matchers {
+    predicate {
+      single_predicate {
+        input {
+          typed_config: {
+            [type.googleapis.com/xds.type.matcher.v3.HttpAttributesCelMatchInput] {}
+          }
+        }
+        custom_match: {
+          typed_config: {
+            [type.googleapis.com/xds.type.matcher.v3.CelMatcher] {
+              expr_match: {
+                cel_expr_checked: {
+                  # Checked CEL AST here.
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    on_match: {
+      # Action on successful match.
+    }
+  }
+}
+```
 
 ### Temporary Environment Variable Protection
 
