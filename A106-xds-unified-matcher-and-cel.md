@@ -368,36 +368,36 @@ advance, provide them in a lazy-loading wrapper.
 **Matching Process:** Starting with a top-level `Matcher`, there will be one
 of the following matchers types:
 
-*   **[List Matcher][Unified Matcher: `MatcherList`]:** This is like a series of
+-   **[List Matcher][Unified Matcher: `MatcherList`]:** This is like a series of
     "if-elif-elif-else" statements. It goes through a list of rules:
-    *   Each rule has a **Condition** (`Predicate`) and a **Result** (`OnMatch`).
-    *   **Condition Checking:** To check a typical condition:
+    -   Each rule has a **Condition** (`Predicate`) and a **Result** (`OnMatch`).
+    -   **Condition Checking:** To check a typical condition:
         1.  Using the `input` extension, extract a specific piece of data from
             the **Matcher Context** (e.g., the value of requests's `:host`
             header).
         2.  Using the `matcher` extension, compare the extracted data against
             the matcher's criteria (e.g., "is it equal to `'example.com'`?",
             "does it start with `'api.'`?").
-    *   Conditions can be combined using AND, OR, NOT, or nested via `OnMatch`.
-    *   **First Match Wins:** The *first* rule whose **Condition** is true has its
-        **Result** executed.
+    -   Conditions can be combined using AND, OR, NOT, or nested via `OnMatch`.
+    -   **First Match Wins:** The *first* rule whose **Condition** is true has
+        its **Result** executed.
 
-*   **[Exact Map Matcher][Unified Matcher: `MatcherTree`]:** This is like a switch
-    statement or dictionary lookup.
-    *   Using the `input` extension, it extracts a specific string value from
+-   **[Exact Map Matcher][Unified Matcher: `MatcherTree`]:** This is like a
+    switch statement or dictionary lookup.
+    -   Using the `input` extension, it extracts a specific string value from
         the **Matcher Context**.
-    *   It looks this the key for this exact string the a predefined map.
-    *   If found, it executes the corresponding **Result**.
+    -   It looks this the key for this exact string the a predefined map.
+    -   If found, it executes the corresponding **Result**.
 
-*   **[Prefix Map Matcher][Unified Matcher: `MatcherTree`]:** Similar to the Map
+-   **[Prefix Map Matcher][Unified Matcher: `MatcherTree`]:** Similar to the Map
     Matcher, but uses prefix matching (a Trie data structure).
-    *   Using the `input` extension, it extracts a specific string value from the
-        **Matcher Context**.
-    *   It finds all entries in the map whose keys are prefixes of the input
+    -   Using the `input` extension, it extracts a specific string value from
+        the **Matcher Context**.
+    -   It finds all entries in the map whose keys are prefixes of the input
         string.
-    *   The **Result** is chosen based the the key with the *longest* matching
+    -   The **Result** is chosen based the the key with the *longest* matching
         prefix.
-    *   Undefined behavior: If there are multiple prefixes of the same greatest
+    -   Undefined behavior: If there are multiple prefixes of the same greatest
         length, their **Result**s are all processed in order of Trie traversal.
         There's no other tie-breaking rule like alphabetical order among the
         tied keys.
@@ -405,20 +405,20 @@ of the following matchers types:
 **[Result][Unified Matcher: `OnMatch`]:** When a match occurs, the `OnMatch`
 dictates the outcome:
 
-*   It can contain an `Action` to be added to the results.
-*   It can contain a nested `Matcher`, triggering a further round of matching.
-    *   The tree is validated to not contain matchers with the tree depth
+-   It can contain an `Action` to be added to the results.
+-   It can contain a nested `Matcher`, triggering a further round of matching.
+    -   The tree is validated to not contain matchers with the tree depth
          greater than `16`. If this three depth is reached at runtime,
         the tree evaluation is terminated, and considered an
         [unsuccessful match][Unified Matcher: Filter Integration].
-*   `keep_matching` determines whether a successful match within an `OnMatch`
+-   `keep_matching` determines whether a successful match within an `OnMatch`
     should be considered "terminal" for the current `Matcher` being evaluated.
     It essentially answers the question: "After processing this `OnMatch`,
     should the current matcher stop looking for more matches, or continue?"
-    *   If `keep_matching` is `false` (the usual case), finding this `OnMatch` is
-       terminal. The `Action` is added (or the nested `Matcher` is evaluated),
-       and the current matcher stops searching.
-    *   If `keep_matching` is `true`, the `Action` is added (or nested
+    -   If `keep_matching` is `false` (the usual case), finding this `OnMatch`
+       is terminal. The `Action` is added (or the nested `Matcher` is
+       evaluated), and the current matcher stops searching.
+    -   If `keep_matching` is `true`, the `Action` is added (or nested
        `Matcher` evaluated), but the current matcher *continues* to look for
        more matches. The overall process is not considered complete until an
        `OnMatch` with `keep_matching` set to `false` is encountered.
@@ -434,12 +434,12 @@ results. Generally, only a single `Action` will be returned, unless
 
 For simplicity:
 
-*   `TypedExtensionConfig` fields: The type is captured in a comment, and the
+-   `TypedExtensionConfig` fields: The type is captured in a comment, and the
     value directly contains the unpacked message content.
-*   `on_match` action: Represented by a string, for example,
+-   `on_match` action: Represented by a string, for example,
     `"on_match": { "action": "route_to_cluster_A" }`.
-*   The first example will include `input` to demonstrate the data flow.
-*   Other examples will skip the input and simply indicates the result of
+-   The first example will include `input` to demonstrate the data flow.
+-   Other examples will skip the input and simply indicates the result of
     evaluation in `custom_match` field, for example, `{ "custom_match": true }`.
 
 For even more examples, refer to
@@ -485,44 +485,44 @@ of a single header, the first matching predicate wins.
 
 **Request Input 1:**
 
-*   Headers: `{ "x-user-segment": "standard-user-1" }`
+-   Headers: `{ "x-user-segment": "standard-user-1" }`
 
 **Evaluation (detailed):**
 
 1.  The `matcher_list` evaluates its matchers in order.
 2.  The first matcher is evaluated.
-    *   The `input` executes `HttpRequestHeaderMatchInput` extension:
-        *   The extension logic extracts the value of the `x-user-segment`
+    -   The `input` executes `HttpRequestHeaderMatchInput` extension:
+        -   The extension logic extracts the value of the `x-user-segment`
             header from the Matcher Context.
-        *   The `input` returns `standard-user-1`.
-    *   The `StringMatcher` is evaluated (standard matcher):
-        *   The input is a string `standard-user-1`, which is the correct input
+        -   The `input` returns `standard-user-1`.
+    -   The `StringMatcher` is evaluated (standard matcher):
+        -   The input is a string `standard-user-1`, which is the correct input
             type for this matcher.
-        *   The `StringMatcher` checks if the value `standard-user-1` has
+        -   The `StringMatcher` checks if the value `standard-user-1` has
             the exact value `premium`.
-        *   The result of matcher evaluation is `false`
-    *   The predicate is `false`, matching continues.
+        -   The result of matcher evaluation is `false`
+    -   The predicate is `false`, matching continues.
 3.  The second matcher is evaluated:
-    *   The `input` executes `HttpRequestHeaderMatchInput` extension:
-        *   The extension logic extracts the value of the `x-user-segment`
+    -   The `input` executes `HttpRequestHeaderMatchInput` extension:
+        -   The extension logic extracts the value of the `x-user-segment`
             header from the Matcher Context.
-        *   The `input` returns `standard-user-1`.
-    *   The `StringMatcher` is evaluated (standard matcher):
-        *   The input is a string `standard-user-1`, which is the correct input
+        -   The `input` returns `standard-user-1`.
+    -   The `StringMatcher` is evaluated (standard matcher):
+        -   The input is a string `standard-user-1`, which is the correct input
             type for this matcher.
-        *   The `StringMatcher` checks if the value `standard-user-1` has the
+        -   The `StringMatcher` checks if the value `standard-user-1` has the
             prefix `standard-`.
-        *   The result of matcher evaluation is `true`
-    *   The predicate is `true`, its `on_match` is evaluated.
-        *   The action `route_to_standard_cluster` is chosen.
-        *   The `matcher_list` stops processing further matchers because
+        -   The result of matcher evaluation is `true`
+    -   The predicate is `true`, its `on_match` is evaluated.
+        -   The action `route_to_standard_cluster` is chosen.
+        -   The `matcher_list` stops processing further matchers because
             `keep_matching` is not set.
 
 **Result 1:** `["route_to_standard_cluster"]`.
 
 **Request Input 2:**
 
-*   Headers: `{ "x-user-segment": "guest" }`
+-   Headers: `{ "x-user-segment": "guest" }`
 
 **Evaluation (simplified):**
 
@@ -531,7 +531,7 @@ of a single header, the first matching predicate wins.
 3.  The second matcher for `standard-` prefix is `false`.
 4.  No matchers in the list evaluated to `true`, therefore the `on_no_match` is
     evaluated:
-    *   The action `route_to_default_cluster` is chosen.
+    -   The action `route_to_default_cluster` is chosen.
 
 **Result 2:** ["route_to_default_cluster"]
 
@@ -574,12 +574,12 @@ accumulated until a matcher with `keep_matching: false` (the default) is found.
 **Evaluation:**
 
 1.  Matcher 1 evaluates to `true`.
-    *   `action_1` is added to the result list.
-    *   Matching continues because `keep_matching: true`.
+    -   `action_1` is added to the result list.
+    -   Matching continues because `keep_matching: true`.
 2.  Matcher 2 evaluates to `false`.
 3.  Matcher 3 evaluates to `true`.
-    *   `action_3` is added to the result list.
-    *   Matching stops because `keep_matching` is false by default.
+    -   `action_3` is added to the result list.
+    -   Matching stops because `keep_matching` is false by default.
 4.  Matcher 4 is not evaluated.
 
 **Result:** `["action_1", "action_3"]`
@@ -623,14 +623,14 @@ This example shows a matcher whose action is another matcher.
 **Evaluation:**
 
 1.  The outer `matcher_list` evaluates its first (and only) matcher:
-    *   The predicate of the outer matcher evaluates to `true`.
-    *   The `on_match` of the outer matcher contains a nested matcher.
-    *   The three depth is not greater than 16, the nested matcher is evaluated:
+    -   The predicate of the outer matcher evaluates to `true`.
+    -   The `on_match` of the outer matcher contains a nested matcher.
+    -   The three depth is not greater than 16, the nested matcher is evaluated:
         1.  The inner `matcher_list` evaluates first matcher to `false`.
         2.  The inner `matcher_list` evaluates its second matcher to `true`:
-            *   The predicate is `true`, its `on_match` is evaluated.
-            *   The action `inner_match_2` is added to the result list.
-            *   Evaluation stops because `keep_matching` is not set.
+            -   The predicate is `true`, its `on_match` is evaluated.
+            -   The action `inner_match_2` is added to the result list.
+            -   Evaluation stops because `keep_matching` is not set.
 
 **Result 1:** `["inner_matcher_2"]`
 
@@ -655,7 +655,7 @@ This shows a prefix map, where the longest prefix match wins.
 
 **Request Input:**
 
-*   Path: `grpc.channelz.v1.Channelz/GetTopChannels`
+-   Path: `grpc.channelz.v1.Channelz/GetTopChannels`
 
 **Evaluation:**
 
@@ -663,7 +663,7 @@ This shows a prefix map, where the longest prefix match wins.
     the map keys.
 2.  It matches both `grpc` and `grpc.channelz`.
 3.  The longest matching prefix is `grpc.channelz`.
-    *   The action `longer_prefix` is chosen.
+    -   The action `longer_prefix` is chosen.
 
 **Result 1:** `["longer_prefix"]`
 
@@ -866,11 +866,11 @@ The main alternative is for each xDS feature (e.g., RLQS, RBAC) to define its
 own custom matching logic. This is how older xDS features were designed, but it
 leads to significant drawbacks:
 
-*   Duplication and Inconsistency: It forces repeated implementation of
+-   Duplication and Inconsistency: It forces repeated implementation of
     common matching primitives (header, path, etc.) across different filters and
     gRPC language implementations, leading to code bloat and subtle behavioral
     differences.
-*   High Maintenance Cost: Bug fixes and new features must be implemented in
+-   High Maintenance Cost: Bug fixes and new features must be implemented in
     multiple places.
 
 The Unified Matcher API provides a single, consistent, and reusable framework
@@ -880,16 +880,16 @@ aligns gRPC with Envoy, creating a more cohesive xDS ecosystem.
 
 ### Disadvantages and Trade-offs
 
-*   **Increased Complexity**: The system is powerful but also complex. The
+-   **Increased Complexity**: The system is powerful but also complex. The
     matcher API involves nested structures, different evaluation flows
     (`MatcherList` vs. `MatcherTree`), and nuanced behaviors like
     `keep_matching`. Configuring and debugging this can be more challenging than
     simpler matching schemes.
-*   **Restricted CEL Functionality**: To ensure safety and performance, the
+-   **Restricted CEL Functionality**: To ensure safety and performance, the
     implementation explicitly disables certain CEL features, such as
     comprehensions (`exists()`, `all()`). This is a direct trade-off of power
     for safety, meaning not all standard CEL capabilities are available.
-*   **Performance Overhead**: Evaluating CEL expressions for every request
+-   **Performance Overhead**: Evaluating CEL expressions for every request
     introduces computational overhead. While designed to be fast, it will be
     slower than simple, hard-coded logic or basic string comparisons. The
     proposal acknowledges this by recommending performance-conscious
