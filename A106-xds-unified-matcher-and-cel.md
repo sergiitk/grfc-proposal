@@ -74,6 +74,7 @@ request matching based on a wide range of request attributes.
 
 [`StringValue`]: https://protobuf.dev/reference/protobuf/google.protobuf/#string-value
 [`TypedExtensionConfig`]: https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/core/v3/extension.proto#L14
+[RE2_wiki]: https://github.com/google/re2/wiki/Syntax
 
 ## Proposal
 
@@ -313,16 +314,27 @@ message:
         The input string must have this prefix. Must be non-empty.
     -   [`suffix`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/string.proto#L44):
         The input string must have this suffix. Must be non-empty.
+    -   [`safe_regex`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/string.proto#L47):
+        ([`RegexMatcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/regex.proto#L15))
+        The input string must match the regular expression.
+        -   [`google_re2`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/regex.proto#L40):
+            Effectively ignored, [Google's RE2][RE2_wiki] is the only supported
+            implementation.
+        -   [`regex`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/regex.proto#L45)
+            Must be non-empty.
     -   [`contains`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/string.proto#L55):
         The input string must contain this substring. Must be non-empty.
 -   [`ignore_case`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/string.proto#L65):
-    If `true`, the matching is case-insensitive.
+    If `true`, the matching is case-insensitive. Does not apply to the
+    `safe_regex` match type.
 
-The following are not supported by gRPC in the initial implementation and will
-result in xDS resource NACK:
+The following are not supported by gRPC and will result in xDS resource NACK:
 
--   `safe_regex`
 -   `custom`
+
+The following fields are ignored:
+
+-   `RegexMatcher.google_re2`
 
 ##### Unified Matcher: `CelMatcher`
 
@@ -759,8 +771,6 @@ except comprehension-style macros.
 | `==`, `!=`, `>`, `<`, `<=`, `>=`                   | Comparisons.                                                                                  |
 | `or`, `&&`, `+`, `-`, `/`, `*`, `%`, `!`           | Basic functions.                                                                              |
 
-[RE2_wiki]: https://en.wikipedia.org/wiki/RE2_(software)
-
 #### CEL: Supported Variables
 
 In the initial implementation only the `request` variable is supported in CEL
@@ -846,7 +856,44 @@ that depend on it (e.g., `GRPC_EXPERIMENTAL_XDS_ENABLE_RLQS` for RLQS).
 
 ## Rationale
 
-> [!WARNING] TODO(sergiitk): rationale
+The chosen approach, integrating the xDS Unified Matcher API with CEL, was
+selected over several alternatives due to its advantages in consistency,
+maintainability, safety, and alignment with the broader xDS ecosystem.
+
+### Considered Alternatives
+
+The main alternative is for each xDS feature (e.g., RLQS, RBAC) to define its
+own custom matching logic. This is how older xDS features were designed, but it
+leads to significant drawbacks:
+
+*   Duplication and Inconsistency: It forces repeated implementation of
+    common matching primitives (header, path, etc.) across different filters and
+    gRPC language implementations, leading to code bloat and subtle behavioral
+    differences.
+*   High Maintenance Cost: Bug fixes and new features must be implemented in
+    multiple places.
+
+The Unified Matcher API provides a single, consistent, and reusable framework
+that is implemented once and shared by all features. This improves
+maintainability, provides a uniform configuration experience for users, and
+aligns gRPC with Envoy, creating a more cohesive xDS ecosystem.
+
+### Disadvantages and Trade-offs
+
+*   **Increased Complexity**: The system is powerful but also complex. The
+    matcher API involves nested structures, different evaluation flows
+    (`MatcherList` vs. `MatcherTree`), and nuanced behaviors like
+    `keep_matching`. Configuring and debugging this can be more challenging than
+    simpler matching schemes.
+*   **Restricted CEL Functionality**: To ensure safety and performance, the
+    implementation explicitly disables certain CEL features, such as
+    comprehensions (`exists()`, `all()`). This is a direct trade-off of power
+    for safety, meaning not all standard CEL capabilities are available.
+*   **Performance Overhead**: Evaluating CEL expressions for every request
+    introduces computational overhead. While designed to be fast, it will be
+    slower than simple, hard-coded logic or basic string comparisons. The
+    proposal acknowledges this by recommending performance-conscious
+    implementation details like on-demand variable resolution.
 
 ## Implementation
 
