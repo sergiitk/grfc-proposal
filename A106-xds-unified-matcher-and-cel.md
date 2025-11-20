@@ -533,22 +533,22 @@ accumulated until a matcher with `keep_matching: false` (the default) is found.
       // Matcher 1
       {
         "predicate": { "single_predicate": { "custom_match": true } },
-        "on_match": { "action": "Action1", "keep_matching": true }
+        "on_match": { "action": "action_1", "keep_matching": true }
       },
       // Matcher 2
       {
         "predicate": { "single_predicate": { "custom_match": false } },
-        "on_match": { "action": "Action2" }
+        "on_match": { "action": "action_2" }
       },
       // Matcher 3
       {
         "predicate": { "single_predicate": { "custom_match": true } },
-        "on_match": { "action": "Action3" }
+        "on_match": { "action": "action_3" }
       },
       // Matcher 4
       {
         "predicate": { "single_predicate": { "custom_match": false } },
-        "on_match": { "action": "Action4" }
+        "on_match": { "action": "action_4" }
       }
     ]
   }
@@ -558,15 +558,15 @@ accumulated until a matcher with `keep_matching: false` (the default) is found.
 **Evaluation:**
 
 1.  Matcher 1 evaluates to `true`.
-    *   `Action1` is added to the result list.
+    *   `action_1` is added to the result list.
     *   Matching continues because `keep_matching: true`.
 2.  Matcher 2 evaluates to `false`.
 3.  Matcher 3 evaluates to `true`.
-    *   `Action3` is added to the result list.
+    *   `action_3` is added to the result list.
     *   Matching stops because `keep_matching` is false by default.
 4.  Matcher 4 is not evaluated.
 
-**Result:** `["Action1", "Action3"]`
+**Result:** `["action_1", "action_3"]`
 
 ##### Example 3: Nested Matcher
 
