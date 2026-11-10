@@ -4,7 +4,7 @@ A106: xDS Unified Matcher and CEL Integration
 * Author(s): Sergii Tkachenko (@sergiitk)
 * Approver: Mark Roth (@markdroth)
 * Status: In Review
-* Last updated: 2025-11-20
+* Last updated: 2026-11-10
 * Discussion at: TODO(sergiitk): insert google group thread
 
 ## Abstract
@@ -97,7 +97,7 @@ The Unified Matcher API revolves around a few key concepts:
 4.  **Matcher Context**: This holds the input data and any other contextual
    information needed during the matching process. It may include information
    about the request being processed, the response, connection info, a
-   combination of thereof, additional parameters to mathers that support it,
+   combination thereof, additional parameters to matchers that support it,
    etc.
 
 #### Unified Matcher: Filter Integration
@@ -263,7 +263,7 @@ result in xDS resource NACK:
 
 #### Unified Matcher: Input Extensions
 
-In this iteration, the following Unified Mather extensions will be supported:
+In this iteration, the following Unified Matcher extensions will be supported:
 
 1.  [Unified Matcher: `HttpRequestHeaderMatchInput`]
 2.  [Unified Matcher: `HttpAttributesCelMatchInput`]
@@ -294,7 +294,7 @@ message:
 
 #### Unified Matcher: Matching Extensions
 
-In this iteration, the following Unified Mather extensions will be supported:
+In this iteration, the following Unified Matcher extensions will be supported:
 
 1.  [Unified Matcher: `StringMatcher`](standard matcher)
 2.  [Unified Matcher: `CelMatcher`]
@@ -364,7 +364,7 @@ message:
 runtime by the filter, contains the input data. May contain any other contextual
 information relevant to the filter. Implementation note: when setting an input,
 consider memory footprint. For example, instead of resolving all headers in
-advance, provide them in a lazy-loading wrapper.
+advance, provide them in a lazy-loading wrapper.\
 **Matching Process:** Starting with a top-level `Matcher`, there will be one
 of the following matchers types:
 
