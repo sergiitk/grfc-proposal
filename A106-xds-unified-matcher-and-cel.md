@@ -181,6 +181,29 @@ message:
     -   [`matcher`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L33)
         ([Unified Matcher: `Matcher`]): A nested matcher that allows for
         building more complex, tree-like matching logic.
+        If the nested matcher does not return a successful match, then the
+        context in which this `OnMatch` is evaluated is considered not to have
+        matched. Examples:
+        -   In a matcher list, if a predicate matches the input but has an
+            `OnMatch` containing a nested matcher that does not return a
+            successful match, the matcher list will treat this as if the
+            predicate did not match the input (i.e., it will continue on to
+            the next predicate).
+        -   In a prefix match map, if the longest matching prefix that matches
+            the input has an `OnMatch` containing a nested matcher that does
+            not return a successful match, the prefix match map will treat
+            this as if the prefix did not match the input (i.e., it will look
+            for a shorter prefix that matches the input).
+        -   In an exact match map, if the key that matches the input has an
+            `OnMatch` containing a nested matcher that does not return a
+            successful match, the exact match map will treat the match as
+            unsuccessful, and use `on_no_match` if present. (In this case,
+            there is no need to continue searching, because there cannot
+            possibly be another match.)
+
+        Note that if the context in which the `OnMatch` is evaluated is
+        considered not to have matched, then `on_no_match` will be used if
+        present.
     -   [`action`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L36)
         ([`TypedExtensionConfig`]): If set, must contain one of the
         protocol-specific actions
