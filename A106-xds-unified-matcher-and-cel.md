@@ -4,7 +4,7 @@ A106: xDS Unified Matcher and CEL Integration
 * Author(s): Sergii Tkachenko (@sergiitk)
 * Approver: Mark Roth (@markdroth)
 * Status: In Review
-* Last updated: 2025-11-20
+* Last updated: 2026-11-10
 * Discussion at: TODO(sergiitk): insert google group thread
 
 ## Abstract
