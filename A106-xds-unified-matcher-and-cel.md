@@ -156,9 +156,20 @@ We will support the following `Matcher` fields:
     -   [`matcher_tree`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L137)
         ([Unified Matcher: `MatcherTree`]).
 -   [`on_no_match`](https://github.com/cncf/xds/blob/2ac532fd44436293585084f8d94c6bdb17835af0/xds/type/matcher/v3/matcher.proto#L143):
-    ([Unified Matcher: `OnMatch`]): Specifies the action executed if no match is
-    found in the `matcher_list` or `matcher_tree`. If not set, refer to filter's
-    [unsuccessful match behavior][Unified Matcher: Filter Integration].
+    ([Unified Matcher: `OnMatch`]): Optional. A matcher will use its
+    `on_no_match` under either of the following conditions:
+    -   The matcher found no matches in its list or tree.
+    -   The matcher found matches in its list or tree, but all of those matches
+        had either (a) nested matchers that did not return a successful match
+        or (b) `keep_matching` set to true.
+
+    If `on_no_match` is unset, then the matcher will immediately return an
+    unsuccessful match. Otherwise, `on_no_match` will be evaluated. In this
+    case, if the `on_no_match` contains a nested matcher, then the result of
+    the nested matcher determines the result of the parent matcher. And
+    regardless of whether `on_no_match` contains a nested matcher or an
+    action, if it has `keep_matching` set to true, the parent matcher will not
+    be considered successful.
 
 #### Unified Matcher: `OnMatch`
 
